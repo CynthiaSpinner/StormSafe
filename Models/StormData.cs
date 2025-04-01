@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace StormSafe.Models
 {
@@ -13,5 +14,24 @@ namespace StormSafe.Models
         public double DistanceToUser { get; set; } // Distance in miles
         public string StormType { get; set; }
         public string RadarImageUrl { get; set; }
+
+        // New fields
+        public double PrecipitationRate { get; set; } // Inches per hour
+        public double WindSpeed { get; set; } // Wind speed in mph
+        public double WindGust { get; set; } // Wind gusts in mph
+        public string AlertLevel { get; set; } // Watch, Warning, etc.
+        public string StormDescription { get; set; }
+        public List<StormPathPoint> PredictedPath { get; set; } = new();
+        public double HailSize { get; set; } // Hail size in inches
+        public bool HasLightning { get; set; }
+        public double Visibility { get; set; } // Visibility in miles
+    }
+
+    public class StormPathPoint
+    {
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public DateTime Time { get; set; }
+        public double Intensity { get; set; }
     }
 }

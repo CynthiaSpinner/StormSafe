@@ -4,6 +4,44 @@
 
 @section Styles {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        .alert-level {
+            padding: 0.5rem;
+            border-radius: 0.25rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+
+        .alert-watch {
+            background-color: #fff3cd;
+            color: #856404;
+        }
+
+        .alert-warning {
+            background-color: #f8d7da;
+            color: #721c24;
+        }
+
+        .alert-advisory {
+            background-color: #cce5ff;
+            color: #004085;
+        }
+
+        .storm-info-card {
+            margin-bottom: 1rem;
+        }
+
+        .info-value {
+            font-size: 1.25rem;
+            font-weight: 500;
+        }
+
+        .info-label {
+            color: #6c757d;
+            font-size: 0.875rem;
+        }
+    </style>
 }
 
 <div class="row">
@@ -26,24 +64,96 @@
             </div>
             <div class="card-body">
                 <div id="storm-info">
-                    <div class="mb-3">
-                        <h5>Storm Speed</h5>
-                        <p id="storm-speed" class="h3">-- mph</p>
+                    <!-- Alert Level -->
+                    <div class="alert-level" id="alert-level">
+                        <span id="alert-text">No Active Alerts</span>
                     </div>
-                    <div class="mb-3">
-                        <h5>Direction</h5>
-                        <p id="storm-direction" class="h3">--°</p>
+
+                    <!-- Storm Type and Description -->
+                    <div class="storm-info-card">
+                        <h5>Storm Type</h5>
+                        <p id="storm-type" class="info-value">--</p>
+                        <p id="storm-description" class="text-muted small">--</p>
                     </div>
-                    <div class="mb-3">
-                        <h5>Estimated Arrival</h5>
-                        <p id="arrival-time" class="h3">--:--</p>
+
+                    <!-- Movement Information -->
+                    <div class="storm-info-card">
+                        <h5>Movement</h5>
+                        <div class="row">
+                            <div class="col-6">
+                                <p class="info-label">Speed</p>
+                                <p id="storm-speed" class="info-value">-- mph</p>
+                            </div>
+                            <div class="col-6">
+                                <p class="info-label">Direction</p>
+                                <p id="storm-direction" class="info-value">--°</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <h5>Distance</h5>
-                        <p id="storm-distance" class="h3">-- miles</p>
+
+                    <!-- Wind Information -->
+                    <div class="storm-info-card">
+                        <h5>Wind Conditions</h5>
+                        <div class="row">
+                            <div class="col-6">
+                                <p class="info-label">Wind Speed</p>
+                                <p id="wind-speed" class="info-value">-- mph</p>
+                            </div>
+                            <div class="col-6">
+                                <p class="info-label">Wind Gusts</p>
+                                <p id="wind-gust" class="info-value">-- mph</p>
+                            </div>
+                        </div>
                     </div>
-                    <div class="mb-3">
-                        <h5>Intensity</h5>
+
+                    <!-- Precipitation -->
+                    <div class="storm-info-card">
+                        <h5>Precipitation</h5>
+                        <div class="row">
+                            <div class="col-6">
+                                <p class="info-label">Rate</p>
+                                <p id="precipitation-rate" class="info-value">-- in/hr</p>
+                            </div>
+                            <div class="col-6">
+                                <p class="info-label">Visibility</p>
+                                <p id="visibility" class="info-value">-- mi</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Hazards -->
+                    <div class="storm-info-card">
+                        <h5>Additional Hazards</h5>
+                        <div class="row">
+                            <div class="col-6">
+                                <p class="info-label">Hail Size</p>
+                                <p id="hail-size" class="info-value">-- in</p>
+                            </div>
+                            <div class="col-6">
+                                <p class="info-label">Lightning</p>
+                                <p id="lightning-status" class="info-value">--</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Arrival Information -->
+                    <div class="storm-info-card">
+                        <h5>Arrival Information</h5>
+                        <div class="row">
+                            <div class="col-6">
+                                <p class="info-label">Distance</p>
+                                <p id="storm-distance" class="info-value">-- mi</p>
+                            </div>
+                            <div class="col-6">
+                                <p class="info-label">ETA</p>
+                                <p id="arrival-time" class="info-value">--:--</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Storm Intensity -->
+                    <div class="storm-info-card">
+                        <h5>Storm Intensity</h5>
                         <div class="progress">
                             <div id="storm-intensity" class="progress-bar" role="progressbar" style="width: 0%"></div>
                         </div>
@@ -80,7 +190,7 @@
                             lng: position.coords.longitude
                         };
                         map.setView([userLocation.lat, userLocation.lng], 8);
-                        
+
                         // Add a marker for user's location
                         if (userMarker) {
                             map.removeLayer(userMarker);
