@@ -89,5 +89,6 @@ ScaffoldingReadMe.txt
 
 # Application specific
 appsettings.json
-appsettings.*.json
-!appsettings.Example.json 
+appsettings.Development.json
+!appsettings.Example.json
+!appsettings.Development.Example.json 
