@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Stormsafe")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+dd26473d554c8029e02c8952abc1b775e23e158c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+2d4348ec792ad42bdb90a4f312b4b3a5b8723df3")]
 [assembly: System.Reflection.AssemblyProductAttribute("Stormsafe")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Stormsafe")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]
