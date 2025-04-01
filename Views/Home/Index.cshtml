@@ -2,50 +2,47 @@
     ViewData["Title"] = "StormSafe - Weather Radar";
 }
 
-<div class="container mt-4">
-    <div class="row">
-        <div class="col-md-8">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Live Radar</h3>
-                </div>
-                <div class="card-body">
-                    <div id="radar-container"
-                        style="height: 400px; background-color: #f8f9fa; display: flex; align-items: center; justify-content: center;">
-                        <p class="text-muted">Radar display coming soon...</p>
-                    </div>
+<div class="row">
+    <div class="col-md-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">Live Radar</h3>
+            </div>
+            <div class="card-body p-0">
+                <div id="radar-container"
+                    style="height: 400px; background-color: #f8f9fa; display: flex; align-items: center; justify-content: center;">
+                    <p class="text-muted">Radar display coming soon...</p>
                 </div>
             </div>
         </div>
-        <div class="col-md-4">
-            <div class="card">
-                <div class="card-header">
-                    <h3>Storm Information</h3>
-                </div>
-                <div class="card-body">
-                    <div id="storm-info">
-                        <div class="mb-3">
-                            <h5>Storm Speed</h5>
-                            <p id="storm-speed" class="h3">-- mph</p>
-                        </div>
-                        <div class="mb-3">
-                            <h5>Direction</h5>
-                            <p id="storm-direction" class="h3">--°</p>
-                        </div>
-                        <div class="mb-3">
-                            <h5>Estimated Arrival</h5>
-                            <p id="arrival-time" class="h3">--:--</p>
-                        </div>
-                        <div class="mb-3">
-                            <h5>Distance</h5>
-                            <p id="storm-distance" class="h3">-- miles</p>
-                        </div>
-                        <div class="mb-3">
-                            <h5>Intensity</h5>
-                            <div class="progress">
-                                <div id="storm-intensity" class="progress-bar" role="progressbar" style="width: 0%">
-                                </div>
-                            </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">Storm Information</h3>
+            </div>
+            <div class="card-body">
+                <div id="storm-info">
+                    <div class="mb-3">
+                        <h5>Storm Speed</h5>
+                        <p id="storm-speed" class="h3">-- mph</p>
+                    </div>
+                    <div class="mb-3">
+                        <h5>Direction</h5>
+                        <p id="storm-direction" class="h3">--°</p>
+                    </div>
+                    <div class="mb-3">
+                        <h5>Estimated Arrival</h5>
+                        <p id="arrival-time" class="h3">--:--</p>
+                    </div>
+                    <div class="mb-3">
+                        <h5>Distance</h5>
+                        <p id="storm-distance" class="h3">-- miles</p>
+                    </div>
+                    <div class="mb-3">
+                        <h5>Intensity</h5>
+                        <div class="progress">
+                            <div id="storm-intensity" class="progress-bar" role="progressbar" style="width: 0%"></div>
                         </div>
                     </div>
                 </div>
