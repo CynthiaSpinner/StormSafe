@@ -7,6 +7,16 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IWeatherService, WeatherService>();
 
+// Configure HTTPS port
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.ListenAnyIP(5202); // HTTP port
+    options.ListenAnyIP(7202, listenOptions => // HTTPS port
+    {
+        listenOptions.UseHttps();
+    });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.

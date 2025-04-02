@@ -91,3 +91,5 @@ C:\Users\cynth\Desktop\Repos\StormSafe\obj\Debug\net10.0\refint\Stormsafe.dll
 C:\Users\cynth\Desktop\Repos\StormSafe\obj\Debug\net10.0\Stormsafe.pdb
 C:\Users\cynth\Desktop\Repos\StormSafe\obj\Debug\net10.0\Stormsafe.genruntimeconfig.cache
 C:\Users\cynth\Desktop\Repos\StormSafe\obj\Debug\net10.0\ref\Stormsafe.dll
+C:\Users\cynth\Desktop\Repos\StormSafe\bin\Debug\net10.0\appsettings.Development.Example.json
+C:\Users\cynth\Desktop\Repos\StormSafe\bin\Debug\net10.0\appsettings.Example.json

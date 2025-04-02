@@ -25,21 +25,21 @@ namespace StormSafe.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error fetching storm data: {ex.Message}");
+                return StatusCode(500, new { error = "Failed to fetch storm data", details = ex.Message });
             }
         }
 
         [HttpGet("radar-image")]
-        public async Task<ActionResult<string>> GetRadarImage([FromQuery] double latitude, [FromQuery] double longitude)
+        public ActionResult<string> GetRadarImage([FromQuery] double latitude, [FromQuery] double longitude)
         {
             try
             {
-                var radarUrl = await _weatherService.GetRadarImageUrlAsync(latitude, longitude);
+                var radarUrl = _weatherService.GetRadarImageUrl(latitude, longitude);
                 return Ok(new { url = radarUrl });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Error fetching radar image: {ex.Message}");
+                return StatusCode(500, new { error = "Failed to fetch radar image URL", details = ex.Message });
             }
         }
     }

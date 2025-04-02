@@ -41,6 +41,11 @@
             color: #6c757d;
             font-size: 0.875rem;
         }
+
+        .updating {
+            opacity: 0.7;
+            font-style: italic;
+        }
     </style>
 }
 
@@ -170,6 +175,9 @@
         // Initialize the map
         let map;
         let userMarker;
+        let stormPathLayer;
+        let weatherLayer;
+        let updateInterval;
 
         function initMap() {
             // Create the map centered on a default location (can be updated with user's location)
@@ -180,6 +188,13 @@
                 maxZoom: 19,
                 attribution: '© OpenStreetMap contributors'
             }).addTo(map);
+
+            // Add weather overlay layer
+            weatherLayer = L.tileLayer('https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=@ViewBag.OpenWeatherMapApiKey', {
+                maxZoom: 19,
+                attribution: '© OpenWeatherMap',
+                opacity: 0.5
+            });
 
             // Get user's location
             if (navigator.geolocation) {
@@ -199,6 +214,11 @@
                             .addTo(map)
                             .bindPopup('Your Location')
                             .openPopup();
+
+                        // Start updating storm data
+                        updateStormData(userLocation);
+                        // Update every 5 minutes
+                        updateInterval = setInterval(() => updateStormData(userLocation), 300000);
                     },
                     error => {
                         console.error('Error getting location:', error);
@@ -207,7 +227,133 @@
             }
         }
 
+        async function updateStormData(userLocation) {
+            try {
+                // Add updating class to all info values
+                document.querySelectorAll('.info-value').forEach(el => el.classList.add('updating'));
+
+                // Fetch storm data from our API
+                const response = await fetch(`/api/weather/storm-data?latitude=${userLocation.lat}&longitude=${userLocation.lng}`);
+                const data = await response.json();
+
+                // Update alert level
+                updateAlertLevel(data.alertLevel);
+
+                // Update storm type and description
+                document.getElementById('storm-type').textContent = data.stormType || '--';
+                document.getElementById('storm-description').textContent = data.stormDescription || '--';
+
+                // Update movement information
+                document.getElementById('storm-speed').textContent = `${data.speed} mph`;
+                document.getElementById('storm-direction').textContent = `${data.direction}°`;
+
+                // Update wind information
+                document.getElementById('wind-speed').textContent = `${data.windSpeed} mph`;
+                document.getElementById('wind-gust').textContent = `${data.windGust} mph`;
+
+                // Update precipitation
+                document.getElementById('precipitation-rate').textContent = `${data.precipitationRate} in/hr`;
+                document.getElementById('visibility').textContent = `${data.visibility} mi`;
+
+                // Update additional hazards
+                document.getElementById('hail-size').textContent = data.hailSize ? `${data.hailSize} in` : '--';
+                document.getElementById('lightning-status').textContent = data.hasLightning ? 'Active' : 'None';
+
+                // Update arrival information
+                document.getElementById('storm-distance').textContent = `${data.distanceToUser} mi`;
+                document.getElementById('arrival-time').textContent = new Date(data.estimatedArrivalTime).toLocaleTimeString();
+
+                // Update storm intensity
+                document.getElementById('storm-intensity').style.width = `${data.intensity}%`;
+
+                // Update storm path on map
+                updateStormPath(data.predictedPath);
+
+                // Update weather overlay
+                updateWeatherOverlay(data);
+
+                // Remove updating class
+                document.querySelectorAll('.info-value').forEach(el => el.classList.remove('updating'));
+            } catch (error) {
+                console.error('Error updating storm data:', error);
+                // Remove updating class even if there's an error
+                document.querySelectorAll('.info-value').forEach(el => el.classList.remove('updating'));
+            }
+        }
+
+        function updateAlertLevel(level) {
+            const alertElement = document.getElementById('alert-level');
+            const alertText = document.getElementById('alert-text');
+
+            // Remove all alert classes
+            alertElement.classList.remove('alert-watch', 'alert-warning', 'alert-advisory');
+
+            // Set alert level and style
+            switch (level?.toLowerCase()) {
+                case 'warning':
+                    alertElement.classList.add('alert-warning');
+                    alertText.textContent = 'Storm Warning Active';
+                    break;
+                case 'watch':
+                    alertElement.classList.add('alert-watch');
+                    alertText.textContent = 'Storm Watch in Effect';
+                    break;
+                case 'advisory':
+                    alertElement.classList.add('alert-advisory');
+                    alertText.textContent = 'Weather Advisory';
+                    break;
+                default:
+                    alertText.textContent = 'No Active Alerts';
+            }
+        }
+
+        function updateStormPath(pathPoints) {
+            // Remove existing path layer if any
+            if (stormPathLayer) {
+                map.removeLayer(stormPathLayer);
+            }
+
+            // Create a new path layer
+            var pathCoordinates = pathPoints.map(point => [point.latitude, point.longitude]);
+            stormPathLayer = L.polyline(pathCoordinates, {
+                color: 'red',
+                weight: 3,
+                opacity: 0.7
+            }).addTo(map);
+
+            // Add markers for each point
+            pathPoints.forEach((point, index) => {
+                L.marker([point.latitude, point.longitude])
+                    .bindPopup(`Time: ${new Date(point.time).toLocaleTimeString()}<br>Intensity: ${point.intensity}%`)
+                    .addTo(map);
+            });
+
+            // Fit the map to show the entire path
+            map.fitBounds(stormPathLayer.getBounds());
+        }
+
+        function updateWeatherOverlay(data) {
+            // Remove existing weather layer if any
+            if (weatherLayer) {
+                map.removeLayer(weatherLayer);
+            }
+
+            // Add new weather layer with updated data
+            weatherLayer = L.tileLayer('https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=@ViewBag.OpenWeatherMapApiKey', {
+                maxZoom: 19,
+                attribution: '© OpenWeatherMap',
+                opacity: 0.5
+            }).addTo(map);
+        }
+
         // Initialize the map when the page loads
         window.onload = initMap;
+
+        // Clean up interval when page is unloaded
+        window.onunload = () => {
+            if (updateInterval) {
+                clearInterval(updateInterval);
+            }
+        };
     </script>
 }
