@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text.Json.Serialization;
 
 namespace StormSafe.Models
 {
@@ -25,6 +26,8 @@ namespace StormSafe.Models
         public double HailSize { get; set; } // Hail size in inches
         public bool HasLightning { get; set; }
         public double Visibility { get; set; } // Visibility in miles
+        public List<DailyForecast> DailyForecasts { get; set; } = new();
+        public List<HourlyForecast> HourlyForecasts { get; set; } = new();
     }
 
     public class StormPathPoint

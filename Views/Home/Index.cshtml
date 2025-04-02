@@ -35,19 +35,20 @@
             display: none;
         }
 
-        .radar-toggle {
+        .radar-controls {
             position: absolute;
             top: 10px;
             right: 10px;
+            z-index: 1000;
             background: white;
-            padding: 8px;
+            padding: 10px;
             border-radius: 4px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            z-index: 4;
-            display: flex;
-            align-items: center;
-            gap: 8px;
             pointer-events: auto;
+        }
+
+        .radar-controls .form-range {
+            width: 150px;
         }
 
         .radar-image-container {
@@ -72,10 +73,32 @@
         }
 
         .loading-indicator {
-            display: flex;
-            flex-direction: column;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 4px;
+            display: none;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            z-index: 3;
+        }
+
+        .error-message {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            border-radius: 4px;
+            display: none;
+            align-items: center;
+            gap: 10px;
+            color: #dc3545;
+            z-index: 3;
         }
 
         .spinner {
@@ -85,13 +108,6 @@
             border-top: 4px solid #3498db;
             border-radius: 50%;
             animation: spin 1s linear infinite;
-        }
-
-        .error-message {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            color: #dc3545;
         }
 
         @@keyframes spin {
@@ -205,7 +221,7 @@
         }
 
         .leaflet-control-locate {
-            z-index: 4 !important;
+            z-index: 1000 !important;
             pointer-events: auto !important;
             background: white !important;
             padding: 5px !important;
@@ -213,18 +229,64 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
             margin-top: 10px !important;
             margin-left: 10px !important;
+            position: relative !important;
         }
 
         .leaflet-control-zoom {
-            z-index: 4 !important;
+            z-index: 1000 !important;
             margin-top: 10px !important;
             margin-left: 10px !important;
+            position: relative !important;
         }
 
         .leaflet-control-radar {
-            z-index: 4 !important;
+            z-index: 1000 !important;
             margin-top: 10px !important;
             margin-right: 10px !important;
+            position: relative !important;
+        }
+
+        .leaflet-control-container {
+            z-index: 1000 !important;
+            pointer-events: auto !important;
+        }
+
+        .leaflet-top,
+        .leaflet-bottom {
+            z-index: 1000 !important;
+        }
+
+        .leaflet-control {
+            z-index: 1000 !important;
+        }
+
+        .nexrad-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            opacity: 0.7;
+            pointer-events: none;
+            display: none;
+        }
+
+        .nexrad-controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 1000;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            pointer-events: auto;
+            min-width: 200px;
+        }
+
+        .nexrad-controls .form-range {
+            width: 100%;
         }
     </style>
 }
@@ -232,31 +294,52 @@
 <div class="row">
     <div class="col-md-8">
         <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
+            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                 <h3 class="mb-0">Live Radar</h3>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-light btn-sm" id="locate-button">
+                        <i class="fas fa-location-arrow"></i> Use My Location
+                    </button>
+                    <button class="btn btn-light btn-sm" id="nexrad-button">
+                        <i class="fas fa-radar"></i> Show NEXRAD
+                    </button>
+                </div>
             </div>
             <div class="card-body p-0">
                 <div class="map-container">
                     <div id="map"></div>
-                    <div id="radar-container" class="radar-overlay">
-                        <div class="radar-toggle">
-                            <label class="switch">
-                                <input type="checkbox" id="radar-toggle">
-                                <span class="slider round"></span>
-                            </label>
-                            <span>Show Radar</span>
-                        </div>
-                        <div id="radar-image-container" class="radar-image-container">
-                            <div id="loading-indicator" class="loading-indicator">
-                                <div class="spinner"></div>
-                                <span>Loading radar...</span>
+                    <div id="nexrad-container" class="nexrad-overlay">
+                        <div class="nexrad-controls">
+                            <div class="mb-2">
+                                <label for="nexrad-opacity" class="form-label">Opacity</label>
+                                <input type="range" class="form-range" id="nexrad-opacity" min="0" max="100" value="70">
                             </div>
-                            <div id="error-message" class="error-message" style="display: none;">
-                                <i class="fas fa-exclamation-circle"></i>
-                                <span>Error loading radar image</span>
+                            <div class="mb-2">
+                                <label for="nexrad-product" class="form-label">Product</label>
+                                <select class="form-select" id="nexrad-product">
+                                    <option value="N0R">Base Reflectivity (N0R)</option>
+                                    <option value="N0S">Storm Relative Motion (N0S)</option>
+                                    <option value="N0V">Velocity (N0V)</option>
+                                    <option value="N0C">Composite Reflectivity (N0C)</option>
+                                    <option value="N0H">Hybrid Scan Reflectivity (N0H)</option>
+                                    <option value="bref_qcd">Base Reflectivity Quick Color Display</option>
+                                </select>
                             </div>
-                            <img id="radar-image" class="radar-image" style="display: none;" />
+                            <div class="mb-2">
+                                <label for="nexrad-site" class="form-label">Radar Site</label>
+                                <select class="form-select" id="nexrad-site">
+                                    <option value="auto">Auto (Nearest)</option>
+                                </select>
+                            </div>
                         </div>
+                    </div>
+                    <div id="loading-indicator" class="loading-indicator">
+                        <div class="spinner"></div>
+                        <span>Loading radar...</span>
+                    </div>
+                    <div id="error-message" class="error-message">
+                        <i class="fas fa-exclamation-circle"></i>
+                        <span>Error loading radar image</span>
                     </div>
                 </div>
             </div>
@@ -269,17 +352,17 @@
             </div>
             <div class="card-body">
                 <div id="storm-info" class="storm-info">
-                    <!-- Error Message -->
-                    <div id="error-message" class="alert alert-danger d-none" role="alert">
-                        Error loading storm data. Please try again later.
-                    </div>
-
                     <!-- Loading Indicator -->
-                    <div id="loading-indicator" class="text-center py-3">
+                    <div id="storm-loading-indicator" class="text-center py-3">
                         <div class="spinner-border text-primary" role="status">
                             <span class="visually-hidden">Loading...</span>
                         </div>
                         <p class="mt-2">Loading storm data...</p>
+                    </div>
+
+                    <!-- Error Message -->
+                    <div id="storm-error-message" class="alert alert-danger d-none" role="alert">
+                        Error loading storm data. Please try again later.
                     </div>
 
                     <!-- Alert Level -->
@@ -393,12 +476,6 @@
         let radarContainer;
         let mapInitialized = false;
 
-        function ensureMapInitialized() {
-            if (!mapInitialized) {
-                initMap();
-            }
-        }
-
         function initMap() {
             console.log('Initializing map...');
 
@@ -412,114 +489,46 @@
             try {
                 // Initialize the map with explicit options
                 map = L.map('map', {
-                    center: [39.8283, -98.5795], // Center on US
+                    center: [39.8283, -98.5795], // Center of US
                     zoom: 4,
-                    zoomControl: true,
-                    attributionControl: true,
-                    maxZoom: 19,
-                    minZoom: 3
+                    minZoom: 4,
+                    maxZoom: 18,
+                    zoomControl: true
                 });
 
-                // Add OpenStreetMap tiles with error handling
-                const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-                    maxZoom: 19,
-                    subdomains: 'abc'
-                });
+                // Add OpenStreetMap tiles
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                }).addTo(map);
 
-                osmLayer.addTo(map);
-
-                // Add error handling for tile loading
-                osmLayer.on('tileerror', function (e) {
-                    console.error('Error loading map tiles:', e);
-                    e.tile.src = e.tile.src;
-                });
-
-                // Add map event listeners
-                addMapEventListeners();
-
-                // Create radar container
-                radarContainer = L.control({ position: 'topright' });
-                radarContainer.onAdd = function (map) {
-                    const div = L.DomUtil.create('div', 'leaflet-control-radar');
-                    div.innerHTML = `
-                                    <div class="radar-container" style="background: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                                        <div class="form-check form-switch mb-2">
-                                            <input class="form-check-input" type="checkbox" id="radar-toggle">
-                                            <label class="form-check-label" for="radar-toggle">Show Radar</label>
-                                        </div>
-                                    </div>
-                                `;
-                    return div;
-                };
-                radarContainer.addTo(map);
-
-                // Add location button
-                const locationButton = L.control({ position: 'topleft' });
-                locationButton.onAdd = function (map) {
-                    const div = L.DomUtil.create('div', 'leaflet-control-locate');
-                    div.innerHTML = '<button class="btn btn-primary btn-sm" id="locate-button">Use My Location</button>';
-                    return div;
-                };
-                locationButton.addTo(map);
-
-                // Add click handler for location button
-                document.getElementById('locate-button').addEventListener('click', () => {
-                    if (navigator.geolocation) {
-                        navigator.geolocation.getCurrentPosition(
-                            position => {
-                                const userLat = position.coords.latitude;
-                                const userLng = position.coords.longitude;
-                                console.log('User location:', userLat, userLng);
-
-                                // Add or update user location marker
-                                if (userMarker) {
-                                    userMarker.setLatLng([userLat, userLng]);
-                                } else {
-                                    userMarker = L.marker([userLat, userLng], {
-                                        icon: L.divIcon({
-                                            className: 'user-marker',
-                                            html: '<div class="user-location-marker"></div>',
-                                            iconSize: [20, 20]
-                                        })
-                                    }).addTo(map);
+                // Add location button handler
+                const locateButton = document.getElementById('locate-button');
+                if (locateButton) {
+                    locateButton.addEventListener('click', function () {
+                        if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(
+                                function (position) {
+                                    const lat = position.coords.latitude;
+                                    const lng = position.coords.longitude;
+                                    map.setView([lat, lng], 10);
+                                    updateStormData(lat, lng);
+                                },
+                                function (error) {
+                                    console.error('Error getting location:', error);
+                                    alert('Unable to get your location. Please enable location services and try again.');
                                 }
-
-                                // Center map on user's location
-                                map.setView([userLat, userLng], 10);
-
-                                // Fetch storm data
-                                updateStormData(userLat, userLng);
-                            },
-                            error => {
-                                console.error('Error getting location:', error);
-                                alert('Unable to get your location. Please enable location services or use the map manually.');
-                            }
-                        );
-                    } else {
-                        alert('Geolocation is not supported by your browser.');
-                    }
-                });
-
-                // Add radar toggle handler
-                document.getElementById('radar-toggle').addEventListener('change', function (e) {
-                    const radarContainer = document.getElementById('radar-container');
-                    if (e.target.checked) {
-                        radarContainer.style.display = 'block';
-                        // Center map on US when radar is shown
-                        map.setView([39.8283, -98.5795], 4);
-                        // Fit radar to map
-                        fitRadarToMap();
-                    } else {
-                        radarContainer.style.display = 'none';
-                    }
-                });
+                            );
+                        } else {
+                            alert('Geolocation is not supported by your browser.');
+                        }
+                    });
+                }
 
                 mapInitialized = true;
                 console.log('Map initialized successfully');
 
-                // Initial update with US center coordinates
-                updateStormData(39.8283, -98.5795);
+                // Initialize NEXRAD controls after map is ready
+                setTimeout(initializeNEXRAD, 100);
             } catch (error) {
                 console.error('Error initializing map:', error);
                 setTimeout(initMap, 1000);
@@ -536,8 +545,9 @@
             const radarImage = document.getElementById('radar-image');
             const loadingIndicator = document.getElementById('loading-indicator');
             const errorMessage = document.getElementById('error-message');
+            const radarContainer = document.getElementById('radar-container');
 
-            if (!radarImage || !loadingIndicator || !errorMessage) {
+            if (!radarImage || !loadingIndicator || !errorMessage || !radarContainer) {
                 console.error('Required elements not found');
                 return;
             }
@@ -570,8 +580,9 @@
             const radarImage = document.getElementById('radar-image');
             if (!radarImage || !map) return;
 
-            // Get the current map bounds
+            // Get the current map bounds and zoom level
             const bounds = map.getBounds();
+            const zoom = map.getZoom();
             const ne = bounds.getNorthEast();
             const sw = bounds.getSouthWest();
 
@@ -579,173 +590,409 @@
             const mapWidth = ne.lng - sw.lng;
             const mapHeight = ne.lat - sw.lat;
 
-            // Set the radar image size to cover the map
-            radarImage.style.width = '100%';
-            radarImage.style.height = '100%';
+            // Calculate the scale factor based on zoom level
+            const baseZoom = 4;
+            const scaleFactor = Math.pow(2, zoom - baseZoom);
+
+            // Set the radar image size and position
+            radarImage.style.width = `${100 * scaleFactor}%`;
+            radarImage.style.height = `${100 * scaleFactor}%`;
             radarImage.style.objectFit = 'cover';
             radarImage.style.transform = 'none';
+
+            // Calculate the center offset based on zoom level
+            const centerOffset = (scaleFactor - 1) * 50;
+            radarImage.style.marginLeft = `-${centerOffset}%`;
+            radarImage.style.marginTop = `-${centerOffset}%`;
+
+            // Ensure the radar image stays centered
+            radarImage.style.position = 'absolute';
+            radarImage.style.left = '50%';
+            radarImage.style.top = '50%';
+            radarImage.style.transform = `translate(-50%, -50%) scale(${scaleFactor})`;
         }
 
         // Add map move and zoom handlers
         function addMapEventListeners() {
             map.on('moveend', fitRadarToMap);
             map.on('zoomend', fitRadarToMap);
+            map.on('zoomstart', fitRadarToMap);
+
+            // Add radar control event listeners
+            document.getElementById('radar-toggle').addEventListener('change', function (e) {
+                const radarContainer = document.getElementById('radar-container');
+                if (e.target.checked) {
+                    radarContainer.style.display = 'block';
+                    // Center map on US when radar is shown
+                    map.setView([39.8283, -98.5795], 4);
+                    // Fit radar to map
+                    fitRadarToMap();
+                } else {
+                    radarContainer.style.display = 'none';
+                }
+            });
+
+            document.getElementById('radar-opacity').addEventListener('input', function (e) {
+                const radarContainer = document.getElementById('radar-container');
+                radarContainer.style.opacity = e.target.value / 100;
+            });
+
+            document.getElementById('radar-type').addEventListener('change', function (e) {
+                // Update radar URL based on selected type
+                const radarType = e.target.value;
+                const radarUrl = getRadarUrl(radarType);
+                updateRadarImage(radarUrl);
+            });
+        }
+
+        function getRadarUrl(type) {
+            const baseUrl = 'https://radar.weather.gov/ridge/standard';
+            switch (type) {
+                case 'composite':
+                    return `${baseUrl}/CONUS_loop.gif`;
+                case 'precipitation':
+                    return `${baseUrl}/CONUS_Precip_loop.gif`;
+                default:
+                    return `${baseUrl}/CONUS_loop.gif`;
+            }
         }
 
         function updateStormData(latitude, longitude) {
-            console.log('Updating storm data for:', latitude, longitude);
-
             const loadingIndicator = document.getElementById('loading-indicator');
             const errorMessage = document.getElementById('error-message');
             const stormInfo = document.getElementById('storm-info');
 
             if (!loadingIndicator || !errorMessage || !stormInfo) {
-                console.error('Required elements not found in the DOM');
+                console.error('Required elements not found');
                 return;
             }
 
-            // Show loading state and hide error
-            loadingIndicator.classList.remove('d-none');
-            errorMessage.classList.add('d-none');
+            loadingIndicator.style.display = 'flex';
+            errorMessage.style.display = 'none';
             stormInfo.classList.add('updating');
 
-            fetch(`/api/weather/storm-data?latitude=${latitude}&longitude=${longitude}`)
+            // Get the nearest radar station
+            fetch(`https://api.weather.gov/points/${latitude},${longitude}`)
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                        throw new Error('Network response was not ok');
                     }
                     return response.json();
                 })
                 .then(data => {
-                    console.log('Received storm data:', data);
+                    // Get the radar station ID
+                    const radarStation = data.properties.radarStation;
+                    currentStationIndex = nexradStations.indexOf(radarStation);
+                    if (currentStationIndex === -1) {
+                        currentStationIndex = 0; // Default to first station if not found
+                    }
 
-                    // Hide loading indicator
-                    loadingIndicator.classList.add('d-none');
+                    // Update NEXRAD layer with the correct station
+                    updateNEXRADLayer();
 
-                    // Update storm information
-                    updateStormInfo(data);
+                    // Get radar data for the station
+                    return fetch(`https://api.weather.gov/radar/stations/${radarStation}`);
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    loadingIndicator.style.display = 'none';
+                    stormInfo.classList.remove('updating');
 
-                    // Update map with storm location and path
-                    updateStormOnMap(data);
+                    // Update storm information based on radar data
+                    const properties = data.properties;
+                    const isStorm = properties.hasPrecipitation || properties.hasHail || properties.hasTornado;
 
-                    // Update radar overlay
-                    updateRadarImage(data.radarImageUrl);
+                    if (isStorm) {
+                        stormInfo.innerHTML = `
+                                                                                                                                        <div class="alert alert-danger">
+                                                                                                                                            <h5 class="alert-heading">Storm Alert!</h5>
+                                                                                                                                            <p>Radar Station: ${properties.stationIdentifier}</p>
+                                                                                                                                            <p>Last Update: ${new Date(properties.lastUpdate).toLocaleString()}</p>
+                                                                                                                                            <p>Precipitation: ${properties.hasPrecipitation ? 'Yes' : 'No'}</p>
+                                                                                                                                            <p>Hail: ${properties.hasHail ? 'Yes' : 'No'}</p>
+                                                                                                                                            <p>Tornado: ${properties.hasTornado ? 'Yes' : 'No'}</p>
+                                                                                                                                        </div>
+                                                                                                                                    `;
+                    } else {
+                        stormInfo.innerHTML = `
+                                                                                                                                        <div class="alert alert-success">
+                                                                                                                                            <h5 class="alert-heading">No Storm Detected</h5>
+                                                                                                                                            <p>Current conditions are safe.</p>
+                                                                                                                                            <p>Last Update: ${new Date(properties.lastUpdate).toLocaleString()}</p>
+                                                                                                                                        </div>
+                                                                                                                                    `;
+                    }
                 })
                 .catch(error => {
                     console.error('Error fetching storm data:', error);
-                    // Show error message
-                    loadingIndicator.classList.add('d-none');
-                    errorMessage.classList.remove('d-none');
-                    errorMessage.textContent = 'Error fetching storm data. Please try again later.';
-                })
-                .finally(() => {
-                    // Remove updating class
+                    loadingIndicator.style.display = 'none';
+                    errorMessage.style.display = 'flex';
                     stormInfo.classList.remove('updating');
                 });
         }
 
-        function updateStormOnMap(data) {
-            console.log('Updating storm on map:', data);
+        // NEXRAD Layer
+        let nexradLayer = null;
+        let nexradStations = [];
+        let currentStationIndex = 0;
+        let retryCount = 0;
+        const maxRetries = 3;
+        const retryDelay = 5000; // 5 seconds delay between retries
 
-            // Remove existing storm marker and path if they exist
-            if (stormMarker) {
-                map.removeLayer(stormMarker);
+        function updateNEXRADLayer() {
+            if (!map) return;
+
+            const product = document.getElementById('nexrad-product')?.value || 'N0R';
+            const opacity = document.getElementById('nexrad-opacity')?.value || 70;
+            const zoom = map.getZoom();
+
+            // Don't show radar if zoomed out too far
+            if (zoom < 4) {
+                console.log('Zoom level too low for radar display');
+                return;
             }
-            if (pathLine) {
-                map.removeLayer(pathLine);
+
+            // Get the current map bounds
+            const bounds = map.getBounds();
+            const center = bounds.getCenter();
+
+            // Find the nearest radar station
+            const nearestStation = findNearestRadarStation(center.lat, center.lng);
+            console.log('Using nearest radar station:', nearestStation);
+
+            // Create URL for the radar image based on product type
+            let url;
+            if (product === 'bref_qcd') {
+                // For bref_qcd, use the NWS radar tile service
+                const timestamp = new Date().getTime();
+                url = `https://radar.weather.gov/ridge/tiles/${nearestStation}/${product}/${timestamp}/{{z}}/{{x}}/{{y}}.png`;
+            } else {
+                // For standard NEXRAD products
+                url = `https://radar.weather.gov/ridge/standard/${nearestStation}_${product}_0.gif`;
+            }
+            console.log('Fetching radar image from:', url);
+
+            // Create the image overlay with adjusted bounds based on zoom level
+            const adjustedBounds = L.latLngBounds(
+                L.latLng(center.lat - (1 / Math.pow(2, zoom - 4)), center.lng - (1 / Math.pow(2, zoom - 4))),
+                L.latLng(center.lat + (1 / Math.pow(2, zoom - 4)), center.lng + (1 / Math.pow(2, zoom - 4)))
+            );
+
+            // Create the image overlay with error handling
+            const img = new Image();
+            img.crossOrigin = "anonymous"; // Add CORS support
+            img.onload = function () {
+                if (nexradLayer) {
+                    map.removeLayer(nexradLayer);
+                }
+                nexradLayer = L.imageOverlay(url, adjustedBounds, {
+                    opacity: opacity / 100,
+                    interactive: false,
+                    zIndex: 2
+                });
+                nexradLayer.addTo(map);
+                console.log('Successfully added radar layer for station:', nearestStation);
+                retryCount = 0;
+            };
+
+            img.onerror = function () {
+                console.error('Error loading radar image:', url);
+                if (retryCount < maxRetries) {
+                    retryCount++;
+                    console.log(`Retrying in ${retryDelay / 1000} seconds... (Attempt ${retryCount}/${maxRetries})`);
+                    setTimeout(updateNEXRADLayer, retryDelay);
+                } else {
+                    console.error('Max retries reached. Could not load radar image.');
+                    // Try a fallback station if available
+                    const fallbackStation = findFallbackStation(center.lat, center.lng, nearestStation);
+                    if (fallbackStation) {
+                        console.log('Trying fallback station:', fallbackStation);
+                        const fallbackUrl = product === 'bref_qcd'
+                            ? `https://radar.weather.gov/ridge/tiles/${fallbackStation}/${product}/${new Date().getTime()}/{{z}}/{{x}}/{{y}}.png`
+                            : `https://radar.weather.gov/ridge/standard/${fallbackStation}_${product}_0.gif`;
+                        img.src = fallbackUrl;
+                    }
+                }
+            };
+
+            img.src = url;
+        }
+
+        function findNearestRadarStation(lat, lng) {
+            // List of radar stations with their coordinates
+            const stations = [
+                // Northeast
+                { id: 'KOKX', lat: 40.8656, lng: -72.8644 }, // Upton, NY
+                { id: 'KDOX', lat: 38.8256, lng: -75.4400 }, // Dover, DE
+                { id: 'KBOX', lat: 41.9559, lng: -71.1370 }, // Boston, MA
+                { id: 'KGYX', lat: 43.8913, lng: -70.2563 }, // Portland, ME
+                { id: 'KBUF', lat: 42.9488, lng: -78.7369 }, // Buffalo, NY
+                { id: 'KALY', lat: 42.7483, lng: -73.8028 }, // Albany, NY
+
+                // Southeast
+                { id: 'KMOB', lat: 30.6047, lng: -87.1108 }, // Mobile, AL
+                { id: 'KTLH', lat: 30.3975, lng: -84.3289 }, // Tallahassee, FL
+                { id: 'KAMX', lat: 25.6106, lng: -80.4131 }, // Miami, FL
+                { id: 'KCLX', lat: 32.6555, lng: -81.0422 }, // Charleston, SC
+
+                // Midwest
+                { id: 'KCLE', lat: 41.4131, lng: -81.8597 }, // Cleveland, OH
+                { id: 'KPBZ', lat: 40.5317, lng: -80.2178 }, // Pittsburgh, PA
+                { id: 'KIND', lat: 39.7075, lng: -86.2803 }, // Indianapolis, IN
+                { id: 'KIWX', lat: 41.3586, lng: -85.7000 }, // Northern Indiana
+
+                // South
+                { id: 'KHGX', lat: 29.4719, lng: -95.0789 }, // Houston, TX
+                { id: 'KEWX', lat: 29.7036, lng: -98.0283 }, // San Antonio, TX
+                { id: 'KDFX', lat: 29.2728, lng: -100.2803 }, // Laughlin AFB, TX
+                { id: 'KLZK', lat: 34.8364, lng: -92.2619 }, // Little Rock, AR
+
+                // West
+                { id: 'KSOX', lat: 33.8177, lng: -117.6360 }, // Santa Ana Mts, CA
+                { id: 'KVTX', lat: 34.4117, lng: -119.1786 }, // Los Angeles, CA
+                { id: 'KEYX', lat: 35.0978, lng: -117.5607 }, // Edwards AFB, CA
+                { id: 'KMTX', lat: 41.2628, lng: -112.4478 }  // Salt Lake City, UT
+            ];
+
+            // Find the nearest station
+            let nearest = stations[0];
+            let minDistance = Number.MAX_VALUE;
+
+            for (const station of stations) {
+                const distance = Math.sqrt(
+                    Math.pow(station.lat - lat, 2) +
+                    Math.pow(station.lng - lng, 2)
+                );
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearest = station;
+                }
             }
 
-            // Add current storm location marker
-            stormMarker = L.marker([data.latitude, data.longitude], {
-                icon: L.divIcon({
-                    className: 'storm-marker',
-                    html: '<div class="storm-location-marker"></div>',
-                    iconSize: [24, 24]
-                })
-            }).addTo(map);
+            return nearest.id;
+        }
 
-            // Create path line if we have predicted path points
-            if (data.predictedPath && data.predictedPath.length > 0) {
-                const pathPoints = data.predictedPath.map(point => [point.latitude, point.longitude]);
+        function findFallbackStation(lat, lng, currentStation) {
+            const stations = [
+                // Northeast
+                { id: 'KOKX', lat: 40.8656, lng: -72.8644 }, // Upton, NY
+                { id: 'KDOX', lat: 38.8256, lng: -75.4400 }, // Dover, DE
+                { id: 'KBOX', lat: 41.9559, lng: -71.1370 }, // Boston, MA
+                { id: 'KGYX', lat: 43.8913, lng: -70.2563 }, // Portland, ME
+                { id: 'KBUF', lat: 42.9488, lng: -78.7369 }, // Buffalo, NY
+                { id: 'KALY', lat: 42.7483, lng: -73.8028 }, // Albany, NY
 
-                // Add the current location as the first point
-                pathPoints.unshift([data.latitude, data.longitude]);
+                // Southeast
+                { id: 'KMOB', lat: 30.6047, lng: -87.1108 }, // Mobile, AL
+                { id: 'KTLH', lat: 30.3975, lng: -84.3289 }, // Tallahassee, FL
+                { id: 'KAMX', lat: 25.6106, lng: -80.4131 }, // Miami, FL
+                { id: 'KCLX', lat: 32.6555, lng: -81.0422 }, // Charleston, SC
 
-                pathLine = L.polyline(pathPoints, {
-                    color: '#ff4444',
-                    weight: 3,
-                    opacity: 0.7,
-                    dashArray: '5, 10'
-                }).addTo(map);
+                // Midwest
+                { id: 'KCLE', lat: 41.4131, lng: -81.8597 }, // Cleveland, OH
+                { id: 'KPBZ', lat: 40.5317, lng: -80.2178 }, // Pittsburgh, PA
+                { id: 'KIND', lat: 39.7075, lng: -86.2803 }, // Indianapolis, IN
+                { id: 'KIWX', lat: 41.3586, lng: -85.7000 }, // Northern Indiana
 
-                // Fit the map to show both the storm and its predicted path
-                const bounds = L.latLngBounds(pathPoints);
-                map.fitBounds(bounds, { padding: [50, 50] });
+                // South
+                { id: 'KHGX', lat: 29.4719, lng: -95.0789 }, // Houston, TX
+                { id: 'KEWX', lat: 29.7036, lng: -98.0283 }, // San Antonio, TX
+                { id: 'KDFX', lat: 29.2728, lng: -100.2803 }, // Laughlin AFB, TX
+                { id: 'KLZK', lat: 34.8364, lng: -92.2619 }, // Little Rock, AR
+
+                // West
+                { id: 'KSOX', lat: 33.8177, lng: -117.6360 }, // Santa Ana Mts, CA
+                { id: 'KVTX', lat: 34.4117, lng: -119.1786 }, // Los Angeles, CA
+                { id: 'KEYX', lat: 35.0978, lng: -117.5607 }, // Edwards AFB, CA
+                { id: 'KMTX', lat: 41.2628, lng: -112.4478 }  // Salt Lake City, UT
+            ];
+
+            // Find the next closest station that's not the current one
+            let nearest = null;
+            let minDistance = Number.MAX_VALUE;
+
+            for (const station of stations) {
+                if (station.id === currentStation) continue;
+
+                const distance = Math.sqrt(
+                    Math.pow(station.lat - lat, 2) +
+                    Math.pow(station.lng - lng, 2)
+                );
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearest = station.id;
+                }
+            }
+
+            return nearest;
+        }
+
+        function initializeNEXRAD() {
+            if (!map) return;
+
+            // Add NEXRAD button handler
+            const nexradButton = document.getElementById('nexrad-button');
+            if (nexradButton) {
+                nexradButton.addEventListener('click', function () {
+                    const nexradContainer = document.getElementById('nexrad-container');
+                    if (nexradContainer) {
+                        const isVisible = nexradContainer.style.display === 'block';
+                        nexradContainer.style.display = isVisible ? 'none' : 'block';
+                        if (!isVisible) {
+                            updateNEXRADLayer();
+                        }
+                    }
+                });
+            }
+
+            // Add opacity control handler
+            const opacityControl = document.getElementById('nexrad-opacity');
+            if (opacityControl) {
+                opacityControl.addEventListener('input', function (e) {
+                    const nexradContainer = document.getElementById('nexrad-container');
+                    if (nexradContainer) {
+                        nexradContainer.style.opacity = e.target.value / 100;
+                    }
+                });
+            }
+
+            // Add product type handler
+            const productControl = document.getElementById('nexrad-product');
+            if (productControl) {
+                productControl.addEventListener('change', function () {
+                    updateNEXRADLayer();
+                });
+            }
+
+            // Add radar site handler
+            const siteControl = document.getElementById('nexrad-site');
+            if (siteControl) {
+                siteControl.addEventListener('change', function () {
+                    updateNEXRADLayer();
+                });
             }
         }
 
-        function updateStormInfo(data) {
-            console.log('Updating storm info with:', data);
+        // Add map move and zoom handlers for NEXRAD
+        function addMapEventListeners() {
+            if (!map) return;
 
-            // Update alert level
-            updateAlertLevel(data.alertLevel);
+            map.on('moveend', function () {
+                if (document.getElementById('nexrad-container')?.style.display === 'block') {
+                    updateNEXRADLayer();
+                }
+            });
 
-            // Update basic storm information
-            document.getElementById('storm-type').textContent = data.stormType;
-            document.getElementById('storm-description').textContent = data.stormDescription;
-
-            // Update movement information
-            document.getElementById('storm-speed').textContent = `${data.speed.toFixed(1)} mph`;
-            document.getElementById('storm-direction').textContent = `${data.direction}°`;
-
-            // Update wind information
-            document.getElementById('wind-speed').textContent = `${data.windSpeed.toFixed(1)} mph`;
-            document.getElementById('wind-gust').textContent = data.windGust > 0 ? `${data.windGust.toFixed(1)} mph` : 'None';
-
-            // Update precipitation
-            document.getElementById('precipitation-rate').textContent =
-                data.precipitationRate > 0 ? `${data.precipitationRate.toFixed(2)} in/hr` : 'None';
-            document.getElementById('visibility').textContent = `${data.visibility.toFixed(1)} mi`;
-
-            // Update additional hazards
-            document.getElementById('hail-size').textContent =
-                data.hailSize > 0 ? `${data.hailSize.toFixed(1)} in` : 'None';
-            document.getElementById('lightning-status').textContent =
-                data.hasLightning ? 'Active' : 'None';
-
-            // Update arrival information
-            document.getElementById('storm-distance').textContent =
-                data.distanceToUser > 0 ? `${data.distanceToUser.toFixed(1)} mi` : 'Calculating...';
-            document.getElementById('arrival-time').textContent =
-                new Date(data.estimatedArrivalTime).toLocaleTimeString();
-
-            // Update storm intensity
-            const intensityBar = document.getElementById('storm-intensity');
-            intensityBar.style.width = `${data.intensity}%`;
-            intensityBar.setAttribute('aria-valuenow', data.intensity);
-        }
-
-        function updateAlertLevel(level) {
-            console.log('Updating alert level:', level);
-
-            const alertElement = document.getElementById('alert-level');
-            alertElement.textContent = level;
-
-            // Remove all alert level classes
-            alertElement.classList.remove('alert-warning', 'alert-danger', 'alert-info');
-
-            // Add the appropriate class based on the alert level
-            switch (level.toLowerCase()) {
-                case 'warning':
-                    alertElement.classList.add('alert-warning');
-                    break;
-                case 'danger':
-                case 'severe':
-                    alertElement.classList.add('alert-danger');
-                    break;
-                default:
-                    alertElement.classList.add('alert-info');
-            }
+            map.on('zoomend', function () {
+                if (document.getElementById('nexrad-container')?.style.display === 'block') {
+                    updateNEXRADLayer();
+                }
+            });
         }
 
         // Initialize the map when the page loads
@@ -763,6 +1010,9 @@
             setInterval(function () {
                 if (!mapInitialized) {
                     console.log('Map not initialized, attempting to recover...');
+                    initMap();
+                } else if (!map) {
+                    console.log('Map instance not found, attempting to recover...');
                     initMap();
                 }
             }, 5000);

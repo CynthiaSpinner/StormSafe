@@ -6,13 +6,14 @@ using Microsoft.Extensions.Configuration;
 using StormSafe.Models;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
+using System.Linq;
 
 namespace StormSafe.Services
 {
     public interface IWeatherService
     {
         Task<StormData> GetStormDataAsync(double latitude, double longitude);
-        string GetRadarImageUrl(double latitude, double longitude);
+        Task<RadarImageResponse> GetRadarImageUrl(double latitude, double longitude);
     }
 
     public class WeatherService : IWeatherService
@@ -25,9 +26,13 @@ namespace StormSafe.Services
         public WeatherService(HttpClient httpClient, IConfiguration configuration, ILogger<WeatherService> logger)
         {
             _httpClient = httpClient;
-            _openWeatherApiKey = configuration["WeatherApi:OpenWeatherMapApiKey"]
+            _openWeatherApiKey = configuration["ApiKeys:OpenWeatherMap"]
                 ?? throw new ArgumentNullException(nameof(configuration), "OpenWeatherMap API key is not configured");
             _logger = logger;
+
+            // Add default headers for NOAA API
+            _httpClient.DefaultRequestHeaders.Add("User-Agent", "StormSafe/1.0 (https://github.com/yourusername/StormSafe)");
+            _httpClient.DefaultRequestHeaders.Add("Accept", "application/geo+json");
         }
 
         public async Task<StormData> GetStormDataAsync(double latitude, double longitude)
@@ -96,7 +101,7 @@ namespace StormSafe.Services
                     EstimatedArrivalTime = hasStorm ? CalculateEstimatedArrivalTime(forecastData, weatherData) : DateTime.UtcNow.AddHours(1),
                     DistanceToUser = 0,
                     StormType = hasStorm ? GetStormType(weatherData) : "Clear Weather",
-                    RadarImageUrl = GetRadarImageUrl(latitude, longitude),
+                    RadarImageUrl = (await GetRadarImageUrl(latitude, longitude)).Url,
                     PrecipitationRate = weatherData.Rain?.OneHour ?? 0,
                     WindSpeed = weatherData.Wind?.Speed ?? 0,
                     WindGust = weatherData.Wind?.Gust ?? 0,
@@ -109,6 +114,35 @@ namespace StormSafe.Services
                 };
 
                 _logger.LogInformation($"Successfully created weather data: {JsonSerializer.Serialize(stormData)}");
+
+                var forecastItems = forecastData.List ?? new List<OpenWeatherForecastItem>();
+                var dailyForecasts = forecastItems
+                    .GroupBy(f => DateTime.Parse(f.DtTxt ?? DateTime.Now.ToString()))
+                    .Select(g => new DailyForecast
+                    {
+                        Date = g.Key,
+                        HighTemp = g.Max(f => f.Main?.Temp ?? 0),
+                        LowTemp = g.Min(f => f.Main?.Temp ?? 0),
+                        Description = g.First().Weather?[0]?.Description ?? "Unknown",
+                        Icon = g.First().Weather?[0]?.Icon ?? "01d"
+                    })
+                    .Take(5)
+                    .ToList();
+
+                var hourlyForecasts = forecastItems
+                    .Where(f => DateTime.Parse(f.DtTxt ?? DateTime.Now.ToString()) <= DateTime.Now.AddHours(24))
+                    .Select(f => new HourlyForecast
+                    {
+                        Time = DateTime.Parse(f.DtTxt ?? DateTime.Now.ToString()),
+                        Temp = f.Main?.Temp ?? 0,
+                        Description = f.Weather?[0]?.Description ?? "Unknown",
+                        Icon = f.Weather?[0]?.Icon ?? "01d"
+                    })
+                    .ToList();
+
+                stormData.DailyForecasts = dailyForecasts;
+                stormData.HourlyForecasts = hourlyForecasts;
+
                 return stormData;
             }
             catch (Exception ex)
@@ -119,25 +153,118 @@ namespace StormSafe.Services
             }
         }
 
-        public string GetRadarImageUrl(double latitude, double longitude)
+        public async Task<RadarImageResponse> GetRadarImageUrl(double latitude, double longitude)
         {
-            // For now, we'll use the CONUS (Continental US) radar loop
-            return "https://radar.weather.gov/ridge/standard/CONUS_loop.gif";
+            try
+            {
+                // Try to get the radar station from NOAA API
+                string radarStation;
+                try
+                {
+                    radarStation = await GetBestRadarStation(latitude, longitude);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to get radar station from NOAA API, using fallback station");
+                    // Fallback to a known radar station based on coordinates
+                    if (latitude >= 40.0 && longitude <= -70.0)
+                        radarStation = "KOKX"; // New York
+                    else if (latitude >= 35.0 && longitude <= -80.0)
+                        radarStation = "KRAX"; // Raleigh
+                    else if (latitude >= 30.0 && longitude <= -90.0)
+                        radarStation = "KLIX"; // New Orleans
+                    else
+                        radarStation = "KOKX"; // Default to New York
+                }
+
+                // Construct the NEXRAD URL with the correct format
+                var timestamp = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
+                // Use the Iowa State Mesonet NEXRAD tile service
+                var url = $"https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-N0R-{radarStation}/{timestamp}/{{z}}/{{x}}/{{y}}.png";
+
+                // Verify the URL is valid
+                try
+                {
+                    var testUrl = url.Replace("{z}", "10").Replace("{x}", "264").Replace("{y}", "420");
+                    var response = await _httpClient.GetAsync(testUrl);
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        _logger.LogWarning($"Radar tile URL test failed: {response.StatusCode}");
+                        // Fallback to a different radar station if the first one fails
+                        radarStation = "KOKX"; // Default to New York
+                        url = $"https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-N0R-{radarStation}/{timestamp}/{{z}}/{{x}}/{{y}}.png";
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Failed to verify radar tile URL");
+                }
+
+                _logger.LogInformation($"Generated radar URL for station {radarStation}: {url}");
+                return new RadarImageResponse { Url = url };
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting radar image URL");
+                // Return an empty URL instead of throwing an exception
+                return new RadarImageResponse { Url = string.Empty };
+            }
         }
 
-        private string GetRadarStation(double latitude, double longitude)
+        private async Task<string> GetBestRadarStation(double latitude, double longitude)
         {
-            // This is a simplified version. In a real application,
-            // you would want to use a more sophisticated algorithm
-            // to determine the nearest radar station based on coordinates
-            if (latitude >= 40.0 && longitude <= -70.0)
-                return "OKX"; // New York City area
-            else if (latitude >= 35.0 && longitude <= -80.0)
-                return "RAX"; // Raleigh area
-            else if (latitude >= 30.0 && longitude <= -90.0)
-                return "LIX"; // New Orleans area
-            else
-                return "DEFAULT"; // Default station
+            try
+            {
+                // Get all radar stations
+                var client = new HttpClient();
+                var response = await client.GetAsync("https://api.weather.gov/radar/stations");
+                response.EnsureSuccessStatusCode();
+                var content = await response.Content.ReadAsStringAsync();
+                var stations = JsonSerializer.Deserialize<RadarStationsResponse>(content);
+
+                if (stations?.Features == null)
+                {
+                    _logger.LogError("Failed to deserialize radar stations response or Features is null");
+                    throw new InvalidOperationException("Failed to get radar stations data");
+                }
+
+                // Filter for operational stations
+                var operationalStations = stations.Features
+                    .Where(s => s.Properties.Rda?.Properties?.OperabilityStatus == "RDA - On-line")
+                    .Where(s => s.Properties.Rda?.Properties?.AlarmSummary == "No Alarms")
+                    .Where(s => s.Properties.Rda?.Properties?.Mode == "Operational")
+                    .ToList();
+
+                // Find the closest operational station
+                var closestStation = operationalStations
+                    .OrderBy(s => CalculateDistance(latitude, longitude,
+                        s.Geometry.Coordinates[1], s.Geometry.Coordinates[0]))
+                    .FirstOrDefault();
+
+                return closestStation?.Properties.Id ?? string.Empty;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting best radar station");
+                return string.Empty;
+            }
+        }
+
+        private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+        {
+            var R = 6371; // Earth's radius in kilometers
+            var dLat = ToRadians(lat2 - lat1);
+            var dLon = ToRadians(lon2 - lon1);
+            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                    Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                    Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            return R * c;
+        }
+
+        private double ToRadians(double angle)
+        {
+            return Math.PI * angle / 180.0;
         }
 
         private double CalculateIntensity(OpenWeatherResponse weatherData)
@@ -183,7 +310,8 @@ namespace StormSafe.Services
             var time = DateTime.Now;
 
             // Use forecast data to generate path points
-            foreach (var forecast in forecastData.List.Take(5))
+            var forecastList = forecastData.List ?? new List<OpenWeatherForecastItem>();
+            foreach (var forecast in forecastList.Take(5))
             {
                 if (forecast?.Weather == null || forecast.Weather.Length == 0)
                     continue;
@@ -192,7 +320,7 @@ namespace StormSafe.Services
                 {
                     Latitude = startLat + (path.Count * 0.1),
                     Longitude = startLng + (path.Count * 0.1),
-                    Time = DateTime.Parse(forecast.DtTxt),
+                    Time = DateTime.Parse(forecast.DtTxt ?? DateTime.Now.ToString()),
                     Intensity = CalculateIntensity(forecast)
                 });
             }
@@ -209,7 +337,8 @@ namespace StormSafe.Services
             var currentIntensity = CalculateIntensity(currentWeather);
 
             // Find the first forecast point where the weather conditions are significant
-            foreach (var forecast in forecastData.List)
+            var forecastList = forecastData.List ?? new List<OpenWeatherForecastItem>();
+            foreach (var forecast in forecastList)
             {
                 if (forecast?.Weather == null || forecast.Weather.Length == 0)
                     continue;
@@ -222,7 +351,7 @@ namespace StormSafe.Services
                     (forecast.Weather[0]?.Main != currentWeather.Weather[0]?.Main &&
                      (forecast.Weather[0]?.Main == "Rain" || forecast.Weather[0]?.Main == "Thunderstorm")))
                 {
-                    return DateTime.Parse(forecast.DtTxt);
+                    return DateTime.Parse(forecast.DtTxt ?? DateTime.Now.ToString());
                 }
             }
 
@@ -233,50 +362,8 @@ namespace StormSafe.Services
         private double CalculateIntensity(OpenWeatherForecastItem forecast)
         {
             var precipitationIntensity = forecast.Rain?.ThreeHour ?? 0;
-            var windIntensity = forecast.Wind.Speed / 50.0;
+            var windIntensity = (forecast.Wind?.Speed ?? 0) / 50.0;
             return Math.Min(100, (precipitationIntensity * 20 + windIntensity * 50));
-        }
-
-        private StormData GetMockData(double latitude, double longitude)
-        {
-            return new StormData
-            {
-                Speed = 25,
-                Direction = 180,
-                Intensity = 75,
-                EstimatedArrivalTime = DateTime.Now.AddHours(2),
-                DistanceToUser = 50,
-                StormType = "Thunderstorm",
-                RadarImageUrl = GetRadarImageUrl(latitude, longitude),
-                PrecipitationRate = 1.5,
-                WindSpeed = 35,
-                WindGust = 45,
-                AlertLevel = "Watch",
-                StormDescription = "Strong thunderstorm with heavy rain and possible hail",
-                HailSize = 0.5,
-                HasLightning = true,
-                Visibility = 2.5,
-                PredictedPath = GenerateMockPath(latitude, longitude)
-            };
-        }
-
-        private List<StormPathPoint> GenerateMockPath(double startLat, double startLng)
-        {
-            var path = new List<StormPathPoint>();
-            var time = DateTime.Now;
-
-            for (int i = 0; i < 5; i++)
-            {
-                path.Add(new StormPathPoint
-                {
-                    Latitude = startLat + (i * 0.1),
-                    Longitude = startLng + (i * 0.1),
-                    Time = time.AddMinutes(i * 30),
-                    Intensity = 75 - (i * 5)
-                });
-            }
-
-            return path;
         }
 
         private bool IsStormPresent(OpenWeatherResponse weatherData, OpenWeatherForecastResponse forecastData)
@@ -316,6 +403,16 @@ namespace StormSafe.Services
             }
 
             return false;
+        }
+
+        private class PointsResponse
+        {
+            public Properties Properties { get; set; } = new();
+        }
+
+        private class Properties
+        {
+            public string RadarStation { get; set; } = string.Empty;
         }
     }
 
@@ -381,6 +478,9 @@ namespace StormSafe.Services
 
         [JsonPropertyName("description")]
         public string? Description { get; set; }
+
+        [JsonPropertyName("icon")]
+        public string? Icon { get; set; }
     }
 
     public class Main

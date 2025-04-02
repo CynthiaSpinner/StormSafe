@@ -7,6 +7,17 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddHttpClient();
 builder.Services.AddScoped<IWeatherService, WeatherService>();
 
+// Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll", builder =>
+    {
+        builder.AllowAnyOrigin()
+               .AllowAnyMethod()
+               .AllowAnyHeader();
+    });
+});
+
 // Add Swagger services
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
@@ -47,8 +58,20 @@ app.UseStaticFiles();
 
 app.UseRouting();
 
+// Enable CORS
+app.UseCors("AllowAll");
+
 app.UseAuthorization();
 
+// Map API routes first
+app.MapControllers();
+
+// Configure API routes
+app.MapControllerRoute(
+    name: "api",
+    pattern: "api/{controller}/{action}/{id?}");
+
+// Then map MVC routes
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");

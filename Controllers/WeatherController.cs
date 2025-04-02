@@ -67,30 +67,23 @@ namespace StormSafe.Controllers
         /// <response code="200">Returns the radar image URL</response>
         /// <response code="500">If there was an error fetching the URL</response>
         [HttpGet("radar-image")]
-        [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+        [ProducesResponseType(typeof(RadarImageResponse), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public ActionResult<string> GetRadarImage(
-            [FromQuery, Required] double latitude,
-            [FromQuery, Required] double longitude)
+        public async Task<IActionResult> GetRadarImage([FromQuery] double latitude, [FromQuery] double longitude)
         {
             try
             {
-                _logger.LogInformation($"Fetching radar image URL for coordinates: lat={latitude}, lon={longitude}");
-
-                var radarUrl = _weatherService.GetRadarImageUrl(latitude, longitude);
-
-                _logger.LogInformation($"Successfully retrieved radar URL: {radarUrl}");
-                return Ok(new { url = radarUrl });
+                var response = await _weatherService.GetRadarImageUrl(latitude, longitude);
+                if (string.IsNullOrEmpty(response.Url))
+                {
+                    return StatusCode(StatusCodes.Status500InternalServerError, "Failed to get radar image URL");
+                }
+                return Ok(response);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Error fetching radar image URL for coordinates: lat={latitude}, lon={longitude}");
-                return StatusCode(500, new
-                {
-                    error = "Failed to fetch radar image URL",
-                    details = ex.Message,
-                    stackTrace = ex.StackTrace
-                });
+                _logger.LogError(ex, "Error getting radar image");
+                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while getting the radar image");
             }
         }
     }
