@@ -283,46 +283,46 @@ namespace StormSafe.Services
     public class OpenWeatherResponse
     {
         [JsonPropertyName("coord")]
-        public Coordinates Coord { get; set; }
+        public Coordinates? Coord { get; set; }
 
         [JsonPropertyName("weather")]
-        public Weather[] Weather { get; set; }
+        public Weather[]? Weather { get; set; }
 
         [JsonPropertyName("main")]
-        public Main Main { get; set; }
+        public Main? Main { get; set; }
 
         [JsonPropertyName("wind")]
-        public Wind Wind { get; set; }
+        public Wind? Wind { get; set; }
 
         [JsonPropertyName("rain")]
-        public Rain Rain { get; set; }
+        public Rain? Rain { get; set; }
 
         [JsonPropertyName("visibility")]
-        public double Visibility { get; set; }
+        public int Visibility { get; set; }
     }
 
     public class OpenWeatherForecastResponse
     {
         [JsonPropertyName("list")]
-        public List<OpenWeatherForecastItem> List { get; set; }
+        public List<OpenWeatherForecastItem>? List { get; set; }
     }
 
     public class OpenWeatherForecastItem
     {
         [JsonPropertyName("dt_txt")]
-        public string DtTxt { get; set; }
+        public string? DtTxt { get; set; }
 
         [JsonPropertyName("main")]
-        public Main Main { get; set; }
+        public Main? Main { get; set; }
 
         [JsonPropertyName("weather")]
-        public Weather[] Weather { get; set; }
+        public Weather[]? Weather { get; set; }
 
         [JsonPropertyName("wind")]
-        public Wind Wind { get; set; }
+        public Wind? Wind { get; set; }
 
         [JsonPropertyName("rain")]
-        public Rain Rain { get; set; }
+        public Rain? Rain { get; set; }
     }
 
     public class Coordinates
@@ -337,10 +337,10 @@ namespace StormSafe.Services
     public class Weather
     {
         [JsonPropertyName("main")]
-        public string Main { get; set; }
+        public string? Main { get; set; }
 
         [JsonPropertyName("description")]
-        public string Description { get; set; }
+        public string? Description { get; set; }
     }
 
     public class Main
@@ -348,11 +348,14 @@ namespace StormSafe.Services
         [JsonPropertyName("temp")]
         public double Temp { get; set; }
 
-        [JsonPropertyName("humidity")]
-        public double Humidity { get; set; }
+        [JsonPropertyName("feels_like")]
+        public double FeelsLike { get; set; }
 
         [JsonPropertyName("pressure")]
-        public double Pressure { get; set; }
+        public int Pressure { get; set; }
+
+        [JsonPropertyName("humidity")]
+        public int Humidity { get; set; }
     }
 
     public class Wind
@@ -361,7 +364,7 @@ namespace StormSafe.Services
         public double Speed { get; set; }
 
         [JsonPropertyName("deg")]
-        public double Deg { get; set; }
+        public int Deg { get; set; }
 
         [JsonPropertyName("gust")]
         public double Gust { get; set; }
