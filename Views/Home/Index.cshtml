@@ -5,46 +5,114 @@
 @section Styles {
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <style>
+        .map-container {
+            height: 500px;
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .user-location-marker {
+            width: 20px;
+            height: 20px;
+            background-color: #4CAF50;
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .storm-location-marker {
+            width: 24px;
+            height: 24px;
+            background-color: #ff4444;
+            border: 2px solid white;
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes
+        pulse {
+            0% {
+                transform: scale(1);
+                opacity: 1;
+            }
+
+            50% {
+                transform: scale(1.2);
+                opacity: 0.7;
+            }
+
+            100% {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        .storm-info {
+            transition: opacity 0.3s ease;
+        }
+
+        .storm-info.updating {
+            opacity: 0.7;
+        }
+
         .alert-level {
-            padding: 0.5rem;
-            border-radius: 0.25rem;
+            padding: 0.5rem 1rem;
+            border-radius: 4px;
             font-weight: bold;
             text-align: center;
             margin-bottom: 1rem;
         }
 
-        .alert-watch {
+        .alert-warning {
             background-color: #fff3cd;
             color: #856404;
+            border: 1px solid #ffeeba;
         }
 
-        .alert-warning {
+        .alert-danger {
             background-color: #f8d7da;
             color: #721c24;
+            border: 1px solid #f5c6cb;
         }
 
-        .alert-advisory {
-            background-color: #cce5ff;
-            color: #004085;
+        .alert-info {
+            background-color: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
         }
 
-        .storm-info-card {
+        .info-card {
+            background: white;
+            border-radius: 8px;
+            padding: 1.5rem;
             margin-bottom: 1rem;
-        }
-
-        .info-value {
-            font-size: 1.25rem;
-            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
         .info-label {
-            color: #6c757d;
-            font-size: 0.875rem;
+            font-weight: bold;
+            color: #666;
+            margin-bottom: 0.5rem;
         }
 
-        .updating {
-            opacity: 0.7;
-            font-style: italic;
+        .info-value {
+            font-size: 1.1rem;
+            color: #333;
+        }
+
+        .predicted-path {
+            stroke-dasharray: 5, 10;
+            animation: dash 30s linear infinite;
+        }
+
+        @keyframes
+        dash {
+            to {
+                stroke-dashoffset: -1000;
+            }
         }
     </style>
 }
@@ -172,194 +240,193 @@
 @section Scripts {
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script>
-        // Initialize the map
         let map;
         let userMarker;
-        let stormPathLayer;
-        let weatherLayer;
-        let updateInterval;
-        let pathMarkers = []; // Array to store path markers
+        let stormMarker;
+        let pathLine;
 
         function initMap() {
-            // Create the map centered on a default location (can be updated with user's location)
-            map = L.map('map').setView([39.8283, -98.5795], 4); // Center of USA
+            // Initialize the map centered on the US
+            map = L.map('map').setView([40.7128, -74.0060], 8);
 
             // Add OpenStreetMap tiles
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                maxZoom: 19,
-                attribution: '© OpenStreetMap contributors'
+                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             }).addTo(map);
 
-            // Add weather overlay layer
-            weatherLayer = L.tileLayer('https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=@ViewBag.OpenWeatherMapApiKey', {
-                maxZoom: 19,
-                attribution: '© OpenWeatherMap',
-                opacity: 0.5
-            });
-
-            // Get user's location
+            // Try to get user's location
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(
                     position => {
-                        const userLocation = {
-                            lat: position.coords.latitude,
-                            lng: position.coords.longitude
-                        };
-                        map.setView([userLocation.lat, userLocation.lng], 8);
+                        const userLat = position.coords.latitude;
+                        const userLng = position.coords.longitude;
 
-                        // Add a marker for user's location
-                        if (userMarker) {
-                            map.removeLayer(userMarker);
-                        }
-                        userMarker = L.marker([userLocation.lat, userLocation.lng])
-                            .addTo(map)
-                            .bindPopup('Your Location')
-                            .openPopup();
+                        // Add user location marker
+                        userMarker = L.marker([userLat, userLng], {
+                            icon: L.divIcon({
+                                className: 'user-marker',
+                                html: '<div class="user-location-marker"></div>',
+                                iconSize: [20, 20]
+                            })
+                        }).addTo(map);
 
-                        // Start updating storm data
-                        updateStormData(userLocation);
-                        // Update every 5 minutes
-                        updateInterval = setInterval(() => updateStormData(userLocation), 300000);
+                        // Center map on user's location
+                        map.setView([userLat, userLng], 10);
+
+                        // Fetch initial storm data
+                        updateStormData(userLat, userLng);
                     },
                     error => {
                         console.error('Error getting location:', error);
+                        // Default to New York if location access is denied
+                        updateStormData(40.7128, -74.0060);
                     }
                 );
+            } else {
+                console.error('Geolocation is not supported by this browser.');
+                // Default to New York if geolocation is not supported
+                updateStormData(40.7128, -74.0060);
+            }
+
+            // Set up periodic updates (every 5 minutes)
+            setInterval(() => {
+                if (userMarker) {
+                    const userLatLng = userMarker.getLatLng();
+                    updateStormData(userLatLng.lat, userLatLng.lng);
+                }
+            }, 300000); // 5 minutes in milliseconds
+        }
+
+        function updateStormData(latitude, longitude) {
+            // Show loading state
+            document.querySelector('.storm-info').classList.add('updating');
+
+            fetch(`/api/weather/storm-data?latitude=${latitude}&longitude=${longitude}`)
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error('Network response was not ok');
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Update storm information
+                    updateStormInfo(data);
+
+                    // Update map with storm location and path
+                    updateStormOnMap(data);
+                })
+                .catch(error => {
+                    console.error('Error fetching storm data:', error);
+                    document.getElementById('error-message').textContent =
+                        'Error fetching storm data. Please try again later.';
+                })
+                .finally(() => {
+                    // Remove loading state
+                    document.querySelector('.storm-info').classList.remove('updating');
+                });
+        }
+
+        function updateStormOnMap(data) {
+            // Remove existing storm marker and path if they exist
+            if (stormMarker) {
+                map.removeLayer(stormMarker);
+            }
+            if (pathLine) {
+                map.removeLayer(pathLine);
+            }
+
+            // Add current storm location marker
+            stormMarker = L.marker([data.latitude, data.longitude], {
+                icon: L.divIcon({
+                    className: 'storm-marker',
+                    html: '<div class="storm-location-marker"></div>',
+                    iconSize: [24, 24]
+                })
+            }).addTo(map);
+
+            // Create path line if we have predicted path points
+            if (data.predictedPath && data.predictedPath.length > 0) {
+                const pathPoints = data.predictedPath.map(point => [point.latitude, point.longitude]);
+
+                // Add the current location as the first point
+                pathPoints.unshift([data.latitude, data.longitude]);
+
+                pathLine = L.polyline(pathPoints, {
+                    color: '#ff4444',
+                    weight: 3,
+                    opacity: 0.7,
+                    dashArray: '5, 10'
+                }).addTo(map);
+
+                // Fit the map to show both the storm and its predicted path
+                const bounds = L.latLngBounds(pathPoints);
+                map.fitBounds(bounds, { padding: [50, 50] });
             }
         }
 
-        async function updateStormData(userLocation) {
-            try {
-                // Add updating class to all info values
-                document.querySelectorAll('.info-value').forEach(el => el.classList.add('updating'));
+        function updateStormInfo(data) {
+            // Update alert level
+            updateAlertLevel(data.alertLevel);
 
-                // Fetch storm data from our API
-                const response = await fetch(`/api/weather/storm-data?latitude=${userLocation.lat}&longitude=${userLocation.lng}`);
-                const data = await response.json();
+            // Update basic storm information
+            document.getElementById('storm-type').textContent = data.stormType;
+            document.getElementById('storm-movement').textContent =
+                `Moving ${data.direction}° at ${data.speed.toFixed(1)} mph`;
+            document.getElementById('storm-intensity').textContent =
+                `Intensity: ${data.intensity.toFixed(1)}`;
 
-                // Update alert level
-                updateAlertLevel(data.alertLevel);
+            // Update wind information
+            document.getElementById('wind-speed').textContent =
+                `${data.windSpeed.toFixed(1)} mph`;
+            document.getElementById('wind-gust').textContent =
+                data.windGust > 0 ? `${data.windGust.toFixed(1)} mph` : 'None';
+            document.getElementById('wind-direction').textContent =
+                `${data.direction}°`;
 
-                // Update storm type and description
-                document.getElementById('storm-type').textContent = data.stormType || '--';
-                document.getElementById('storm-description').textContent = data.stormDescription || '--';
+            // Update precipitation
+            document.getElementById('precipitation-rate').textContent =
+                data.precipitationRate > 0 ?
+                    `${data.precipitationRate.toFixed(2)} in/hr` : 'None';
 
-                // Update movement information
-                document.getElementById('storm-speed').textContent = `${data.speed} mph`;
-                document.getElementById('storm-direction').textContent = `${data.direction}°`;
+            // Update additional hazards
+            document.getElementById('hail-size').textContent =
+                data.hailSize > 0 ? `${data.hailSize.toFixed(1)} in` : 'None';
+            document.getElementById('lightning').textContent =
+                data.hasLightning ? 'Detected' : 'None';
+            document.getElementById('visibility').textContent =
+                `${data.visibility.toFixed(1)} miles`;
 
-                // Update wind information
-                document.getElementById('wind-speed').textContent = `${data.windSpeed} mph`;
-                document.getElementById('wind-gust').textContent = `${data.windGust} mph`;
-
-                // Update precipitation
-                document.getElementById('precipitation-rate').textContent = `${data.precipitationRate} in/hr`;
-                document.getElementById('visibility').textContent = `${data.visibility} mi`;
-
-                // Update additional hazards
-                document.getElementById('hail-size').textContent = data.hailSize ? `${data.hailSize} in` : '--';
-                document.getElementById('lightning-status').textContent = data.hasLightning ? 'Active' : 'None';
-
-                // Update arrival information
-                document.getElementById('storm-distance').textContent = `${data.distanceToUser} mi`;
-                document.getElementById('arrival-time').textContent = new Date(data.estimatedArrivalTime).toLocaleTimeString();
-
-                // Update storm intensity
-                document.getElementById('storm-intensity').style.width = `${data.intensity}%`;
-
-                // Update storm path on map
-                updateStormPath(data.predictedPath);
-
-                // Update weather overlay
-                updateWeatherOverlay(data);
-
-                // Remove updating class
-                document.querySelectorAll('.info-value').forEach(el => el.classList.remove('updating'));
-            } catch (error) {
-                console.error('Error updating storm data:', error);
-                // Remove updating class even if there's an error
-                document.querySelectorAll('.info-value').forEach(el => el.classList.remove('updating'));
-            }
+            // Update arrival information
+            const arrivalTime = new Date(data.estimatedArrivalTime);
+            document.getElementById('estimated-arrival').textContent =
+                arrivalTime.toLocaleTimeString();
+            document.getElementById('distance-to-storm').textContent =
+                data.distanceToUser > 0 ?
+                    `${data.distanceToUser.toFixed(1)} miles` : 'Calculating...';
         }
 
         function updateAlertLevel(level) {
             const alertElement = document.getElementById('alert-level');
-            const alertText = document.getElementById('alert-text');
+            alertElement.textContent = level;
 
-            // Remove all alert classes
-            alertElement.classList.remove('alert-watch', 'alert-warning', 'alert-advisory');
+            // Remove all alert level classes
+            alertElement.classList.remove('alert-warning', 'alert-danger', 'alert-info');
 
-            // Set alert level and style
-            switch (level?.toLowerCase()) {
+            // Add the appropriate class based on the alert level
+            switch (level.toLowerCase()) {
                 case 'warning':
                     alertElement.classList.add('alert-warning');
-                    alertText.textContent = 'Storm Warning Active';
                     break;
-                case 'watch':
-                    alertElement.classList.add('alert-watch');
-                    alertText.textContent = 'Storm Watch in Effect';
-                    break;
-                case 'advisory':
-                    alertElement.classList.add('alert-advisory');
-                    alertText.textContent = 'Weather Advisory';
+                case 'danger':
+                case 'severe':
+                    alertElement.classList.add('alert-danger');
                     break;
                 default:
-                    alertText.textContent = 'No Active Alerts';
+                    alertElement.classList.add('alert-info');
             }
-        }
-
-        function updateStormPath(pathPoints) {
-            // Remove existing path layer if any
-            if (stormPathLayer) {
-                map.removeLayer(stormPathLayer);
-            }
-
-            // Remove existing path markers
-            pathMarkers.forEach(marker => map.removeLayer(marker));
-            pathMarkers = [];
-
-            // Create a new path layer
-            var pathCoordinates = pathPoints.map(point => [point.latitude, point.longitude]);
-            stormPathLayer = L.polyline(pathCoordinates, {
-                color: 'red',
-                weight: 3,
-                opacity: 0.7
-            }).addTo(map);
-
-            // Add markers for each point
-            pathPoints.forEach((point, index) => {
-                var marker = L.marker([point.latitude, point.longitude])
-                    .bindPopup(`Time: ${new Date(point.time).toLocaleTimeString()}<br>Intensity: ${point.intensity}%`)
-                    .addTo(map);
-                pathMarkers.push(marker);
-            });
-
-            // Fit the map to show the entire path
-            map.fitBounds(stormPathLayer.getBounds());
-        }
-
-        function updateWeatherOverlay(data) {
-            // Remove existing weather layer if any
-            if (weatherLayer) {
-                map.removeLayer(weatherLayer);
-            }
-
-            // Add new weather layer with updated data
-            weatherLayer = L.tileLayer('https://tile.openweathermap.org/map/precipitation_new/{z}/{x}/{y}.png?appid=@ViewBag.OpenWeatherMapApiKey', {
-                maxZoom: 19,
-                attribution: '© OpenWeatherMap',
-                opacity: 0.5
-            }).addTo(map);
         }
 
         // Initialize the map when the page loads
-        window.onload = initMap;
-
-        // Clean up interval when page is unloaded
-        window.onunload = () => {
-            if (updateInterval) {
-                clearInterval(updateInterval);
-            }
-        };
+        document.addEventListener('DOMContentLoaded', initMap);
     </script>
 }
