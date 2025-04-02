@@ -34,7 +34,7 @@ namespace StormSafe.Services
         {
             try
             {
-                _logger.LogInformation($"Starting to fetch storm data for coordinates: lat={latitude}, lon={longitude}");
+                _logger.LogInformation($"Starting to fetch weather data for coordinates: lat={latitude}, lon={longitude}");
 
                 // Get current weather data
                 var weatherUrl = $"{_openWeatherBaseUrl}/weather?lat={latitude}&lon={longitude}&appid={_openWeatherApiKey}&units=imperial";
@@ -82,6 +82,9 @@ namespace StormSafe.Services
                     throw new Exception(errorMessage);
                 }
 
+                // Determine if there's a storm based on weather conditions
+                bool hasStorm = IsStormPresent(weatherData, forecastData);
+
                 // Convert OpenWeatherMap data to StormData
                 var stormData = new StormData
                 {
@@ -90,38 +93,36 @@ namespace StormSafe.Services
                     Speed = weatherData.Wind?.Speed ?? 0,
                     Direction = weatherData.Wind?.Deg ?? 0,
                     Intensity = CalculateIntensity(weatherData),
-                    EstimatedArrivalTime = CalculateEstimatedArrivalTime(forecastData, weatherData),
-                    DistanceToUser = 0, // This would be calculated based on user's location
-                    StormType = GetStormType(weatherData),
+                    EstimatedArrivalTime = hasStorm ? CalculateEstimatedArrivalTime(forecastData, weatherData) : DateTime.UtcNow.AddHours(1),
+                    DistanceToUser = 0,
+                    StormType = hasStorm ? GetStormType(weatherData) : "Clear Weather",
                     RadarImageUrl = GetRadarImageUrl(latitude, longitude),
                     PrecipitationRate = weatherData.Rain?.OneHour ?? 0,
                     WindSpeed = weatherData.Wind?.Speed ?? 0,
                     WindGust = weatherData.Wind?.Gust ?? 0,
-                    AlertLevel = GetAlertLevel(weatherData),
+                    AlertLevel = hasStorm ? GetAlertLevel(weatherData) : "None",
                     StormDescription = weatherData.Weather[0]?.Description ?? "Unknown weather conditions",
-                    HailSize = 0, // OpenWeatherMap doesn't provide hail data
+                    HailSize = 0,
                     HasLightning = weatherData.Weather[0]?.Main?.Contains("Thunderstorm") ?? false,
                     Visibility = weatherData.Visibility / 1609.34, // Convert meters to miles
-                    PredictedPath = GeneratePredictedPath(forecastData, latitude, longitude)
+                    PredictedPath = hasStorm ? GeneratePredictedPath(forecastData, latitude, longitude) : new List<StormPathPoint>()
                 };
 
-                _logger.LogInformation($"Successfully created storm data: {JsonSerializer.Serialize(stormData)}");
+                _logger.LogInformation($"Successfully created weather data: {JsonSerializer.Serialize(stormData)}");
                 return stormData;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, $"Error in GetStormDataAsync: {ex.Message}");
                 _logger.LogError($"Stack Trace: {ex.StackTrace}");
-                throw; // Re-throw the exception to be handled by the controller
+                throw;
             }
         }
 
         public string GetRadarImageUrl(double latitude, double longitude)
         {
-            // Get the nearest radar station based on coordinates
-            // For now, we'll use a static URL, but in a real application,
-            // you would want to determine the nearest radar station
-            return $"https://radar.weather.gov/ridge/standard/{GetRadarStation(latitude, longitude)}_loop.gif";
+            // For now, we'll use the CONUS (Continental US) radar loop
+            return "https://radar.weather.gov/ridge/standard/CONUS_loop.gif";
         }
 
         private string GetRadarStation(double latitude, double longitude)
@@ -276,6 +277,45 @@ namespace StormSafe.Services
             }
 
             return path;
+        }
+
+        private bool IsStormPresent(OpenWeatherResponse weatherData, OpenWeatherForecastResponse forecastData)
+        {
+            // Check current weather for storm conditions
+            if (weatherData.Weather != null)
+            {
+                foreach (var weather in weatherData.Weather)
+                {
+                    if (weather.Main?.Contains("Thunderstorm") == true ||
+                        weather.Main?.Contains("Rain") == true ||
+                        weather.Main?.Contains("Snow") == true)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            // Check forecast for upcoming storm conditions
+            if (forecastData.List != null)
+            {
+                foreach (var forecast in forecastData.List)
+                {
+                    if (forecast.Weather != null)
+                    {
+                        foreach (var weather in forecast.Weather)
+                        {
+                            if (weather.Main?.Contains("Thunderstorm") == true ||
+                                weather.Main?.Contains("Rain") == true ||
+                                weather.Main?.Contains("Snow") == true)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return false;
         }
     }
 

@@ -3,14 +3,105 @@
 }
 
 @section Styles {
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <style>
         .map-container {
-            height: 500px;
+            position: relative;
             width: 100%;
-            border-radius: 8px;
+            height: 500px;
+            min-height: 500px;
+            background-color: #f8f9fa;
+        }
+
+        #map {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .radar-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            opacity: 0.7;
+            pointer-events: none;
+            display: none;
+        }
+
+        .radar-toggle {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 8px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            z-index: 4;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            pointer-events: auto;
+        }
+
+        .radar-image-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
             overflow: hidden;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            pointer-events: none;
+        }
+
+        .radar-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform-origin: center center;
+            pointer-events: none;
+        }
+
+        .loading-indicator {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .error-message {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #dc3545;
+        }
+
+        @@keyframes spin {
+            0% {
+                transform: rotate(0deg);
+            }
+
+            100% {
+                transform: rotate(360deg);
+            }
         }
 
         .user-location-marker {
@@ -112,6 +203,29 @@
                 stroke-dashoffset: -1000;
             }
         }
+
+        .leaflet-control-locate {
+            z-index: 4 !important;
+            pointer-events: auto !important;
+            background: white !important;
+            padding: 5px !important;
+            border-radius: 4px !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+            margin-top: 10px !important;
+            margin-left: 10px !important;
+        }
+
+        .leaflet-control-zoom {
+            z-index: 4 !important;
+            margin-top: 10px !important;
+            margin-left: 10px !important;
+        }
+
+        .leaflet-control-radar {
+            z-index: 4 !important;
+            margin-top: 10px !important;
+            margin-right: 10px !important;
+        }
     </style>
 }
 
@@ -122,8 +236,28 @@
                 <h3 class="mb-0">Live Radar</h3>
             </div>
             <div class="card-body p-0">
-                <div id="radar-container" style="height: 400px; background-color: #f8f9fa;">
-                    <div id="map" style="height: 100%; width: 100%;"></div>
+                <div class="map-container">
+                    <div id="map"></div>
+                    <div id="radar-container" class="radar-overlay">
+                        <div class="radar-toggle">
+                            <label class="switch">
+                                <input type="checkbox" id="radar-toggle">
+                                <span class="slider round"></span>
+                            </label>
+                            <span>Show Radar</span>
+                        </div>
+                        <div id="radar-image-container" class="radar-image-container">
+                            <div id="loading-indicator" class="loading-indicator">
+                                <div class="spinner"></div>
+                                <span>Loading radar...</span>
+                            </div>
+                            <div id="error-message" class="error-message" style="display: none;">
+                                <i class="fas fa-exclamation-circle"></i>
+                                <span>Error loading radar image</span>
+                            </div>
+                            <img id="radar-image" class="radar-image" style="display: none;" />
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -134,21 +268,34 @@
                 <h3 class="mb-0">Storm Information</h3>
             </div>
             <div class="card-body">
-                <div id="storm-info">
+                <div id="storm-info" class="storm-info">
+                    <!-- Error Message -->
+                    <div id="error-message" class="alert alert-danger d-none" role="alert">
+                        Error loading storm data. Please try again later.
+                    </div>
+
+                    <!-- Loading Indicator -->
+                    <div id="loading-indicator" class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading storm data...</p>
+                    </div>
+
                     <!-- Alert Level -->
                     <div class="alert-level" id="alert-level">
                         <span id="alert-text">No Active Alerts</span>
                     </div>
 
                     <!-- Storm Type and Description -->
-                    <div class="storm-info-card">
+                    <div class="info-card">
                         <h5>Storm Type</h5>
                         <p id="storm-type" class="info-value">--</p>
                         <p id="storm-description" class="text-muted small">--</p>
                     </div>
 
                     <!-- Movement Information -->
-                    <div class="storm-info-card">
+                    <div class="info-card">
                         <h5>Movement</h5>
                         <div class="row">
                             <div class="col-6">
@@ -163,7 +310,7 @@
                     </div>
 
                     <!-- Wind Information -->
-                    <div class="storm-info-card">
+                    <div class="info-card">
                         <h5>Wind Conditions</h5>
                         <div class="row">
                             <div class="col-6">
@@ -178,7 +325,7 @@
                     </div>
 
                     <!-- Precipitation -->
-                    <div class="storm-info-card">
+                    <div class="info-card">
                         <h5>Precipitation</h5>
                         <div class="row">
                             <div class="col-6">
@@ -193,7 +340,7 @@
                     </div>
 
                     <!-- Additional Hazards -->
-                    <div class="storm-info-card">
+                    <div class="info-card">
                         <h5>Additional Hazards</h5>
                         <div class="row">
                             <div class="col-6">
@@ -208,7 +355,7 @@
                     </div>
 
                     <!-- Arrival Information -->
-                    <div class="storm-info-card">
+                    <div class="info-card">
                         <h5>Arrival Information</h5>
                         <div class="row">
                             <div class="col-6">
@@ -223,7 +370,7 @@
                     </div>
 
                     <!-- Storm Intensity -->
-                    <div class="storm-info-card">
+                    <div class="info-card">
                         <h5>Storm Intensity</h5>
                         <div class="progress">
                             <div id="storm-intensity" class="progress-bar" role="progressbar" style="width: 0%"></div>
@@ -236,95 +383,270 @@
 </div>
 
 @section Scripts {
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script>
         let map;
         let userMarker;
         let stormMarker;
         let pathLine;
+        let radarContainer;
+        let mapInitialized = false;
+
+        function ensureMapInitialized() {
+            if (!mapInitialized) {
+                initMap();
+            }
+        }
 
         function initMap() {
-            // Initialize the map centered on the US
-            map = L.map('map').setView([40.7128, -74.0060], 8);
+            console.log('Initializing map...');
 
-            // Add OpenStreetMap tiles
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            }).addTo(map);
-
-            // Try to get user's location
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(
-                    position => {
-                        const userLat = position.coords.latitude;
-                        const userLng = position.coords.longitude;
-
-                        // Add user location marker
-                        userMarker = L.marker([userLat, userLng], {
-                            icon: L.divIcon({
-                                className: 'user-marker',
-                                html: '<div class="user-location-marker"></div>',
-                                iconSize: [20, 20]
-                            })
-                        }).addTo(map);
-
-                        // Center map on user's location
-                        map.setView([userLat, userLng], 10);
-
-                        // Fetch initial storm data
-                        updateStormData(userLat, userLng);
-                    },
-                    error => {
-                        console.error('Error getting location:', error);
-                        // Default to New York if location access is denied
-                        updateStormData(40.7128, -74.0060);
-                    }
-                );
-            } else {
-                console.error('Geolocation is not supported by this browser.');
-                // Default to New York if geolocation is not supported
-                updateStormData(40.7128, -74.0060);
+            // Check if map container exists
+            const mapContainer = document.getElementById('map');
+            if (!mapContainer) {
+                console.error('Map container not found');
+                return;
             }
 
-            // Set up periodic updates (every 5 minutes)
-            setInterval(() => {
-                if (userMarker) {
-                    const userLatLng = userMarker.getLatLng();
-                    updateStormData(userLatLng.lat, userLatLng.lng);
-                }
-            }, 300000); // 5 minutes in milliseconds
+            try {
+                // Initialize the map with explicit options
+                map = L.map('map', {
+                    center: [39.8283, -98.5795], // Center on US
+                    zoom: 4,
+                    zoomControl: true,
+                    attributionControl: true,
+                    maxZoom: 19,
+                    minZoom: 3
+                });
+
+                // Add OpenStreetMap tiles with error handling
+                const osmLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+                    maxZoom: 19,
+                    subdomains: 'abc'
+                });
+
+                osmLayer.addTo(map);
+
+                // Add error handling for tile loading
+                osmLayer.on('tileerror', function (e) {
+                    console.error('Error loading map tiles:', e);
+                    e.tile.src = e.tile.src;
+                });
+
+                // Add map event listeners
+                addMapEventListeners();
+
+                // Create radar container
+                radarContainer = L.control({ position: 'topright' });
+                radarContainer.onAdd = function (map) {
+                    const div = L.DomUtil.create('div', 'leaflet-control-radar');
+                    div.innerHTML = `
+                                    <div class="radar-container" style="background: white; padding: 10px; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.2);">
+                                        <div class="form-check form-switch mb-2">
+                                            <input class="form-check-input" type="checkbox" id="radar-toggle">
+                                            <label class="form-check-label" for="radar-toggle">Show Radar</label>
+                                        </div>
+                                    </div>
+                                `;
+                    return div;
+                };
+                radarContainer.addTo(map);
+
+                // Add location button
+                const locationButton = L.control({ position: 'topleft' });
+                locationButton.onAdd = function (map) {
+                    const div = L.DomUtil.create('div', 'leaflet-control-locate');
+                    div.innerHTML = '<button class="btn btn-primary btn-sm" id="locate-button">Use My Location</button>';
+                    return div;
+                };
+                locationButton.addTo(map);
+
+                // Add click handler for location button
+                document.getElementById('locate-button').addEventListener('click', () => {
+                    if (navigator.geolocation) {
+                        navigator.geolocation.getCurrentPosition(
+                            position => {
+                                const userLat = position.coords.latitude;
+                                const userLng = position.coords.longitude;
+                                console.log('User location:', userLat, userLng);
+
+                                // Add or update user location marker
+                                if (userMarker) {
+                                    userMarker.setLatLng([userLat, userLng]);
+                                } else {
+                                    userMarker = L.marker([userLat, userLng], {
+                                        icon: L.divIcon({
+                                            className: 'user-marker',
+                                            html: '<div class="user-location-marker"></div>',
+                                            iconSize: [20, 20]
+                                        })
+                                    }).addTo(map);
+                                }
+
+                                // Center map on user's location
+                                map.setView([userLat, userLng], 10);
+
+                                // Fetch storm data
+                                updateStormData(userLat, userLng);
+                            },
+                            error => {
+                                console.error('Error getting location:', error);
+                                alert('Unable to get your location. Please enable location services or use the map manually.');
+                            }
+                        );
+                    } else {
+                        alert('Geolocation is not supported by your browser.');
+                    }
+                });
+
+                // Add radar toggle handler
+                document.getElementById('radar-toggle').addEventListener('change', function (e) {
+                    const radarContainer = document.getElementById('radar-container');
+                    if (e.target.checked) {
+                        radarContainer.style.display = 'block';
+                        // Center map on US when radar is shown
+                        map.setView([39.8283, -98.5795], 4);
+                        // Fit radar to map
+                        fitRadarToMap();
+                    } else {
+                        radarContainer.style.display = 'none';
+                    }
+                });
+
+                mapInitialized = true;
+                console.log('Map initialized successfully');
+
+                // Initial update with US center coordinates
+                updateStormData(39.8283, -98.5795);
+            } catch (error) {
+                console.error('Error initializing map:', error);
+                setTimeout(initMap, 1000);
+            }
+        }
+
+        function handleRadarImageError(img) {
+            console.error('Error loading radar image:', img.src);
+            document.getElementById('radar-loading').classList.add('d-none');
+            document.getElementById('radar-error').classList.remove('d-none');
+        }
+
+        function updateRadarImage(radarUrl) {
+            const radarImage = document.getElementById('radar-image');
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const errorMessage = document.getElementById('error-message');
+
+            if (!radarImage || !loadingIndicator || !errorMessage) {
+                console.error('Required elements not found');
+                return;
+            }
+
+            // Show loading indicator
+            loadingIndicator.style.display = 'flex';
+            errorMessage.style.display = 'none';
+            radarImage.style.display = 'none';
+
+            // Add timestamp to prevent caching
+            const timestamp = new Date().getTime();
+            const urlWithTimestamp = `${radarUrl}?t=${timestamp}`;
+
+            radarImage.onload = function () {
+                loadingIndicator.style.display = 'none';
+                radarImage.style.display = 'block';
+                fitRadarToMap();
+            };
+
+            radarImage.onerror = function () {
+                loadingIndicator.style.display = 'none';
+                errorMessage.style.display = 'flex';
+                console.error('Error loading radar image:', urlWithTimestamp);
+            };
+
+            radarImage.src = urlWithTimestamp;
+        }
+
+        function fitRadarToMap() {
+            const radarImage = document.getElementById('radar-image');
+            if (!radarImage || !map) return;
+
+            // Get the current map bounds
+            const bounds = map.getBounds();
+            const ne = bounds.getNorthEast();
+            const sw = bounds.getSouthWest();
+
+            // Calculate the scale needed to cover the map
+            const mapWidth = ne.lng - sw.lng;
+            const mapHeight = ne.lat - sw.lat;
+
+            // Set the radar image size to cover the map
+            radarImage.style.width = '100%';
+            radarImage.style.height = '100%';
+            radarImage.style.objectFit = 'cover';
+            radarImage.style.transform = 'none';
+        }
+
+        // Add map move and zoom handlers
+        function addMapEventListeners() {
+            map.on('moveend', fitRadarToMap);
+            map.on('zoomend', fitRadarToMap);
         }
 
         function updateStormData(latitude, longitude) {
-            // Show loading state
-            document.querySelector('.storm-info').classList.add('updating');
+            console.log('Updating storm data for:', latitude, longitude);
+
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const errorMessage = document.getElementById('error-message');
+            const stormInfo = document.getElementById('storm-info');
+
+            if (!loadingIndicator || !errorMessage || !stormInfo) {
+                console.error('Required elements not found in the DOM');
+                return;
+            }
+
+            // Show loading state and hide error
+            loadingIndicator.classList.remove('d-none');
+            errorMessage.classList.add('d-none');
+            stormInfo.classList.add('updating');
 
             fetch(`/api/weather/storm-data?latitude=${latitude}&longitude=${longitude}`)
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error('Network response was not ok');
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
                     return response.json();
                 })
                 .then(data => {
+                    console.log('Received storm data:', data);
+
+                    // Hide loading indicator
+                    loadingIndicator.classList.add('d-none');
+
                     // Update storm information
                     updateStormInfo(data);
 
                     // Update map with storm location and path
                     updateStormOnMap(data);
+
+                    // Update radar overlay
+                    updateRadarImage(data.radarImageUrl);
                 })
                 .catch(error => {
                     console.error('Error fetching storm data:', error);
-                    document.getElementById('error-message').textContent =
-                        'Error fetching storm data. Please try again later.';
+                    // Show error message
+                    loadingIndicator.classList.add('d-none');
+                    errorMessage.classList.remove('d-none');
+                    errorMessage.textContent = 'Error fetching storm data. Please try again later.';
                 })
                 .finally(() => {
-                    // Remove loading state
-                    document.querySelector('.storm-info').classList.remove('updating');
+                    // Remove updating class
+                    stormInfo.classList.remove('updating');
                 });
         }
 
         function updateStormOnMap(data) {
+            console.log('Updating storm on map:', data);
+
             // Remove existing storm marker and path if they exist
             if (stormMarker) {
                 map.removeLayer(stormMarker);
@@ -363,47 +685,49 @@
         }
 
         function updateStormInfo(data) {
+            console.log('Updating storm info with:', data);
+
             // Update alert level
             updateAlertLevel(data.alertLevel);
 
             // Update basic storm information
             document.getElementById('storm-type').textContent = data.stormType;
-            document.getElementById('storm-movement').textContent =
-                `Moving ${data.direction}° at ${data.speed.toFixed(1)} mph`;
-            document.getElementById('storm-intensity').textContent =
-                `Intensity: ${data.intensity.toFixed(1)}`;
+            document.getElementById('storm-description').textContent = data.stormDescription;
+
+            // Update movement information
+            document.getElementById('storm-speed').textContent = `${data.speed.toFixed(1)} mph`;
+            document.getElementById('storm-direction').textContent = `${data.direction}°`;
 
             // Update wind information
-            document.getElementById('wind-speed').textContent =
-                `${data.windSpeed.toFixed(1)} mph`;
-            document.getElementById('wind-gust').textContent =
-                data.windGust > 0 ? `${data.windGust.toFixed(1)} mph` : 'None';
-            document.getElementById('wind-direction').textContent =
-                `${data.direction}°`;
+            document.getElementById('wind-speed').textContent = `${data.windSpeed.toFixed(1)} mph`;
+            document.getElementById('wind-gust').textContent = data.windGust > 0 ? `${data.windGust.toFixed(1)} mph` : 'None';
 
             // Update precipitation
             document.getElementById('precipitation-rate').textContent =
-                data.precipitationRate > 0 ?
-                    `${data.precipitationRate.toFixed(2)} in/hr` : 'None';
+                data.precipitationRate > 0 ? `${data.precipitationRate.toFixed(2)} in/hr` : 'None';
+            document.getElementById('visibility').textContent = `${data.visibility.toFixed(1)} mi`;
 
             // Update additional hazards
             document.getElementById('hail-size').textContent =
                 data.hailSize > 0 ? `${data.hailSize.toFixed(1)} in` : 'None';
-            document.getElementById('lightning').textContent =
-                data.hasLightning ? 'Detected' : 'None';
-            document.getElementById('visibility').textContent =
-                `${data.visibility.toFixed(1)} miles`;
+            document.getElementById('lightning-status').textContent =
+                data.hasLightning ? 'Active' : 'None';
 
             // Update arrival information
-            const arrivalTime = new Date(data.estimatedArrivalTime);
-            document.getElementById('estimated-arrival').textContent =
-                arrivalTime.toLocaleTimeString();
-            document.getElementById('distance-to-storm').textContent =
-                data.distanceToUser > 0 ?
-                    `${data.distanceToUser.toFixed(1)} miles` : 'Calculating...';
+            document.getElementById('storm-distance').textContent =
+                data.distanceToUser > 0 ? `${data.distanceToUser.toFixed(1)} mi` : 'Calculating...';
+            document.getElementById('arrival-time').textContent =
+                new Date(data.estimatedArrivalTime).toLocaleTimeString();
+
+            // Update storm intensity
+            const intensityBar = document.getElementById('storm-intensity');
+            intensityBar.style.width = `${data.intensity}%`;
+            intensityBar.setAttribute('aria-valuenow', data.intensity);
         }
 
         function updateAlertLevel(level) {
+            console.log('Updating alert level:', level);
+
             const alertElement = document.getElementById('alert-level');
             alertElement.textContent = level;
 
@@ -425,6 +749,23 @@
         }
 
         // Initialize the map when the page loads
-        document.addEventListener('DOMContentLoaded', initMap);
+        document.addEventListener('DOMContentLoaded', function () {
+            // Ensure Leaflet is loaded
+            if (typeof L === 'undefined') {
+                console.error('Leaflet not loaded');
+                return;
+            }
+
+            // Initialize map
+            initMap();
+
+            // Set up periodic health check
+            setInterval(function () {
+                if (!mapInitialized) {
+                    console.log('Map not initialized, attempting to recover...');
+                    initMap();
+                }
+            }, 5000);
+        });
     </script>
 }
