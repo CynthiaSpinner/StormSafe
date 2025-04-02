@@ -178,6 +178,7 @@
         let stormPathLayer;
         let weatherLayer;
         let updateInterval;
+        let pathMarkers = []; // Array to store path markers
 
         function initMap() {
             // Create the map centered on a default location (can be updated with user's location)
@@ -313,6 +314,10 @@
                 map.removeLayer(stormPathLayer);
             }
 
+            // Remove existing path markers
+            pathMarkers.forEach(marker => map.removeLayer(marker));
+            pathMarkers = [];
+
             // Create a new path layer
             var pathCoordinates = pathPoints.map(point => [point.latitude, point.longitude]);
             stormPathLayer = L.polyline(pathCoordinates, {
@@ -323,9 +328,10 @@
 
             // Add markers for each point
             pathPoints.forEach((point, index) => {
-                L.marker([point.latitude, point.longitude])
+                var marker = L.marker([point.latitude, point.longitude])
                     .bindPopup(`Time: ${new Date(point.time).toLocaleTimeString()}<br>Intensity: ${point.intensity}%`)
                     .addTo(map);
+                pathMarkers.push(marker);
             });
 
             // Fit the map to show the entire path
