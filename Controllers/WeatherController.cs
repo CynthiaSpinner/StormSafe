@@ -66,21 +66,27 @@ namespace StormSafe.Controllers
         /// </summary>
         /// <param name="latitude">The latitude coordinate (e.g., 40.7128 for New York)</param>
         /// <param name="longitude">The longitude coordinate (e.g., -74.0060 for New York)</param>
+        /// <param name="zoom">The zoom level of the map</param>
         /// <returns>The URL of the radar image</returns>
         /// <response code="200">Returns the radar image URL</response>
         /// <response code="500">If there was an error fetching the URL</response>
         [HttpGet("radar-image")]
-        public async Task<ActionResult<RadarImageResponse>> GetRadarImage([FromQuery] double latitude, [FromQuery] double longitude)
+        public async Task<ActionResult<RadarImageResponse>> GetRadarImage(
+            [FromQuery] double latitude,
+            [FromQuery] double longitude,
+            [FromQuery] int zoom = 6)
         {
             try
             {
-                _logger.LogInformation("Getting radar image for coordinates: lat={Latitude}, lon={Longitude}", latitude, longitude);
-                var url = await _weatherService.GetRadarImageUrlAsync(latitude, longitude);
+                _logger.LogInformation("Getting radar image for coordinates: lat={Latitude}, lon={Longitude}, zoom={Zoom}",
+                    latitude, longitude, zoom);
+                var url = await _weatherService.GetRadarImageUrlAsync(latitude, longitude, zoom);
                 return Ok(new RadarImageResponse { Url = url });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting radar image for coordinates: lat={Latitude}, lon={Longitude}", latitude, longitude);
+                _logger.LogError(ex, "Error getting radar image for coordinates: lat={Latitude}, lon={Longitude}, zoom={Zoom}",
+                    latitude, longitude, zoom);
                 return StatusCode(500, new { error = "An unexpected error occurred while fetching radar image" });
             }
         }

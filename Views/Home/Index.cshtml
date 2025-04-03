@@ -17,6 +17,7 @@
             height: 500px;
             min-height: 500px;
             background-color: #f8f9fa;
+            overflow: hidden;
         }
 
         #map {
@@ -485,43 +486,54 @@
                 map = L.map('map', {
                     center: [39.8283, -98.5795],
                     zoom: 4,
-                    minZoom: 4,
+                    minZoom: 3,
                     maxZoom: 18,
-                    zoomControl: true
+                    zoomControl: true,
+                    zoomAnimation: false // Disable zoom animation to prevent overlay issues
                 });
 
                 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
                     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 }).addTo(map);
 
-                // Add event listeners
-                map.on('moveend', updateNEXRADLayer);
-                map.on('zoomend', updateNEXRADLayer);
+                // Add event listeners for map movement and zoom
+                // The tile layer will automatically update with the map
+                // No need for manual updates on zoom or move events
+                map.on('zoomend', () => {
+                    console.log("Map zoomed to level:", map.getZoom());
+                });
+
+                map.on('moveend', () => {
+                    console.log("Map moved to:", map.getCenter());
+                });
 
                 // Initialize controls
                 initializeControls();
+
+                // Log initial map state
+                console.log("Map initialized with center:", map.getCenter(), "and zoom:", map.getZoom());
             }
         }
 
         function initializeControls() {
             // Location button
             document.getElementById('locate-button')?.addEventListener('click', () => {
-                        if (navigator.geolocation) {
-                            navigator.geolocation.getCurrentPosition(
+                if (navigator.geolocation) {
+                    navigator.geolocation.getCurrentPosition(
                         position => {
                             const { latitude, longitude } = position.coords;
                             map.setView([latitude, longitude], 10);
                             updateStormData(latitude, longitude);
                         },
                         error => {
-                                    console.error('Error getting location:', error);
-                                    alert('Unable to get your location. Please enable location services and try again.');
-                                }
-                            );
-                        } else {
-                            alert('Geolocation is not supported by your browser.');
+                            console.error('Error getting location:', error);
+                            alert('Unable to get your location. Please enable location services and try again.');
                         }
-                    });
+                    );
+                } else {
+                    alert('Geolocation is not supported by your browser.');
+                }
+            });
 
             // NEXRAD button
             document.getElementById('nexrad-button')?.addEventListener('click', () => {
@@ -531,6 +543,12 @@
                     nexradContainer.style.display = isVisible ? 'none' : 'block';
                     radarEnabled = !isVisible;
                     if (!isVisible) {
+                        // Always remove any existing layer first
+                        if (nexradLayer) {
+                            map.removeLayer(nexradLayer);
+                            nexradLayer = null;
+                        }
+                        // Then update with a fresh layer
                         updateNEXRADLayer();
                     } else if (nexradLayer) {
                         map.removeLayer(nexradLayer);
@@ -553,52 +571,59 @@
         function updateNEXRADLayer() {
             if (!radarEnabled) return;
 
+            // Always remove the existing layer first
             if (nexradLayer) {
                 map.removeLayer(nexradLayer);
+                nexradLayer = null;
             }
 
-            // Get current map center
+            // Get current map center and zoom level
             var center = map.getCenter();
+            var zoom = map.getZoom();
             console.log(
                 "Getting radar data for coordinates:",
                 center.lat,
-                center.lng
+                center.lng,
+                "at zoom level:",
+                zoom
             );
 
-            // Use the radar-image endpoint which returns a URL
-            fetch(
-                `/api/weather/radar-image?latitude=${center.lat}&longitude=${center.lng}`
-            )
-                .then((response) => {
-                    if (!response.ok) {
-                        throw new Error("Network response was not ok");
-                    }
-                    return response.json();
-                })
-                .then((data) => {
-                    if (!data.url) {
-                        throw new Error("No radar URL returned");
-                    }
-                    console.log("Received radar URL:", data.url);
+            // Show loading indicator
+            const loadingIndicator = document.getElementById('loading-indicator');
+            const errorMessage = document.getElementById('error-message');
+            if (loadingIndicator) loadingIndicator.style.display = 'flex';
+            if (errorMessage) errorMessage.style.display = 'none';
 
-                    // Create a new image overlay for the radar
-                    var bounds = map.getBounds();
-                    nexradLayer = L.imageOverlay(data.url, bounds, {
-                        opacity: 0.7,
-                        interactive: false,
-                    }).addTo(map);
+            // Create a tile layer for the radar overlay
+            // This ensures proper synchronization with the map's zoom and pan
+            nexradLayer = L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png', {
+                opacity: 0.7,
+                attribution: 'Radar data from Iowa Environmental Mesonet',
+                maxZoom: 18,
+                minZoom: 3,
+                tileSize: 256,
+                errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+                // Add a custom function to handle zoom levels
+                getTileUrl: function (coords) {
+                    // For zoom levels below 7, use zoom level 7 tiles but scale them appropriately
+                    const effectiveZoom = Math.max(7, coords.z);
+                    // Use the highest resolution product available (n0q-900913)
+                    return `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/${effectiveZoom}/${coords.x}/${coords.y}.png`;
+                }
+            }).addTo(map);
 
-                    // Add error handling
-                    nexradLayer.on("error", function (e) {
-                        console.error("Error loading radar image:", e);
-                        if (nexradLayer) {
-                            map.removeLayer(nexradLayer);
-                        }
-                    });
-                })
-                .catch((error) => {
-                    console.error("Error fetching radar data:", error);
-                });
+            // Add error handling
+            nexradLayer.on("error", function (e) {
+                console.error("Error loading radar image:", e);
+                if (nexradLayer) {
+                    map.removeLayer(nexradLayer);
+                    nexradLayer = null;
+                }
+                if (errorMessage) errorMessage.style.display = 'flex';
+            });
+
+            // Hide loading indicator
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
         }
 
         // Function to update storm data
@@ -606,22 +631,22 @@
             try {
                 const loadingIndicator = document.getElementById('storm-loading-indicator');
                 const errorMessage = document.getElementById('storm-error-message');
-            const stormInfo = document.getElementById('storm-info');
+                const stormInfo = document.getElementById('storm-info');
 
-            if (!loadingIndicator || !errorMessage || !stormInfo) {
-                console.error('Required elements not found');
-                return;
-            }
+                if (!loadingIndicator || !errorMessage || !stormInfo) {
+                    console.error('Required elements not found');
+                    return;
+                }
 
                 loadingIndicator.style.display = 'block';
-            errorMessage.style.display = 'none';
-            stormInfo.classList.add('updating');
+                errorMessage.style.display = 'none';
+                stormInfo.classList.add('updating');
 
                 const response = await fetch(
                     `/api/weather/storm-data?latitude=${latitude}&longitude=${longitude}`
                 );
 
-                    if (!response.ok) {
+                if (!response.ok) {
                     throw new Error("Network response was not ok");
                 }
 

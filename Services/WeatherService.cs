@@ -15,7 +15,7 @@ namespace StormSafe.Services
     public interface IWeatherService
     {
         Task<StormData> GetStormDataAsync(double latitude, double longitude);
-        Task<string> GetRadarImageUrlAsync(double latitude, double longitude);
+        Task<string> GetRadarImageUrlAsync(double latitude, double longitude, int zoom);
         Task<List<string>> GetRadarStationsAsync();
     }
 
@@ -367,27 +367,38 @@ namespace StormSafe.Services
             return nearestStation;
         }
 
-        public Task<string> GetRadarImageUrlAsync(double latitude, double longitude)
+        public Task<string> GetRadarImageUrlAsync(double latitude, double longitude, int zoom)
         {
             try
             {
-                _logger.LogInformation($"Fetching radar image URL for coordinates: {latitude}, {longitude}");
+                _logger.LogInformation(
+                    "Fetching radar image URL for lat: {Lat}, lon: {Lon}, zoom: {Zoom}",
+                    latitude,
+                    longitude,
+                    zoom
+                );
 
-                // Convert lat/lon to tile coordinates
-                // This is a simplified conversion - you may need to adjust based on your specific needs
-                int zoom = 6; // Zoom level from the curl command
-                int x = (int)((longitude + 180) / 360 * Math.Pow(2, zoom));
-                int y = (int)((1 - Math.Log(Math.Tan(latitude * Math.PI / 180) + 1 / Math.Cos(latitude * Math.PI / 180)) / Math.PI) / 2 * Math.Pow(2, zoom));
+                // Calculate tile coordinates using Web Mercator projection
+                // This matches OpenStreetMap's tile system
+                double x = (longitude + 180.0) / 360.0 * Math.Pow(2, zoom);
+                double y = (1.0 - Math.Log(Math.Tan(latitude * Math.PI / 180.0) +
+                    1.0 / Math.Cos(latitude * Math.PI / 180.0)) / Math.PI) / 2.0 * Math.Pow(2, zoom);
 
-                _logger.LogInformation($"Calculated tile coordinates: x={x}, y={y}, zoom={zoom}");
+                // Round to nearest tile
+                int tileX = (int)Math.Floor(x);
+                int tileY = (int)Math.Floor(y);
 
-                // Use the mesonet.agron.iastate.edu endpoint with the correct format
-                // Using N0Q product type as shown in the curl command
-                return Task.FromResult($"https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{zoom}/{x}/{y}.png");
+                // Construct the radar image URL using the IEM radar service
+                // The URL format follows: https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png
+                // Note: The IEM service uses the same tile system as OpenStreetMap
+                string url = $"https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{zoom}/{tileX}/{tileY}.png";
+
+                _logger.LogInformation("Generated radar URL: {Url}", url);
+                return Task.FromResult(url);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching radar image URL");
+                _logger.LogError(ex, "Error generating radar image URL");
                 throw;
             }
         }
