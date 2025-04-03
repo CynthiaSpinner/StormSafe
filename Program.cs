@@ -6,11 +6,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<IWeatherService, WeatherService>();
 builder.Services.AddMemoryCache();
-builder.Services.AddHttpClient("WeatherAPI", client =>
-{
-    client.DefaultRequestHeaders.Add("User-Agent", "StormSafe/1.0");
-    client.Timeout = TimeSpan.FromSeconds(30);
-});
 
 // Configure HTTP client with custom User-Agent for NOAA API
 builder.Services.AddHttpClient("NOAA", client =>
@@ -30,13 +25,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Add Swagger services
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.SwaggerDoc("v1", new() { Title = "StormSafe API", Version = "v1" });
-});
-
 // Configure HTTPS port
 builder.WebHost.ConfigureKestrel(options =>
 {
@@ -52,11 +40,7 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(c =>
-    {
-        c.SwaggerEndpoint("/swagger/v1/swagger.json", "StormSafe API V1");
-    });
+    app.UseDeveloperExceptionPage();
 }
 else
 {
@@ -78,12 +62,7 @@ app.UseAuthorization();
 // Map API routes first
 app.MapControllers();
 
-// Configure API routes
-app.MapControllerRoute(
-    name: "api",
-    pattern: "api/{controller}/{action}/{id?}");
-
-// Then map MVC routes
+// Configure default route
 app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");

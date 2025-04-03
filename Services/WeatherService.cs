@@ -15,8 +15,8 @@ namespace StormSafe.Services
     public interface IWeatherService
     {
         Task<StormData> GetStormDataAsync(double latitude, double longitude);
-        Task<RadarImageResponse> GetRadarImageUrl(double latitude, double longitude);
-        Task<RadarStationsResponse> GetRadarStationsAsync();
+        Task<string> GetRadarImageUrlAsync(double latitude, double longitude);
+        Task<List<string>> GetRadarStationsAsync();
     }
 
     public class WeatherService : IWeatherService
@@ -121,14 +121,33 @@ namespace StormSafe.Services
                     throw new Exception("No observation stations found");
                 }
 
-                var firstStation = stations.Features.First();
-                if (firstStation.Properties?.LatestObservation == null)
+                // Try to find a station with a valid latest observation URL
+                var stationWithObservation = stations.Features.FirstOrDefault(s =>
+                    s?.Properties?.LatestObservation != null &&
+                    !string.IsNullOrEmpty(s.Properties.LatestObservation));
+
+                if (stationWithObservation == null)
                 {
-                    _logger.LogError("Latest observation URL is null");
-                    throw new Exception("Latest observation URL is null");
+                    _logger.LogWarning("No stations with valid observation URLs found, using default values");
+                    // Create storm data with default values
+                    return new StormData
+                    {
+                        CurrentLocation = new Location { Latitude = latitude, Longitude = longitude },
+                        StormTypes = new List<string> { "Unknown" },
+                        CurrentConditions = new CurrentConditions
+                        {
+                            Temperature = 0,
+                            WindSpeed = 0,
+                            WindDirection = 0,
+                            Precipitation = 0,
+                            Description = "No current conditions available"
+                        },
+                        Forecast = new List<ForecastPeriod>(),
+                        PredictedPath = new List<Location>()
+                    };
                 }
 
-                var latestObsUrl = firstStation.Properties.LatestObservation;
+                var latestObsUrl = stationWithObservation.Properties.LatestObservation;
 
                 _logger.LogInformation("Fetching latest observation from: {LatestObsUrl}", latestObsUrl);
 
@@ -196,52 +215,6 @@ namespace StormSafe.Services
             }
         }
 
-        private string GetWeatherIcon(string forecast)
-        {
-            forecast = forecast.ToLower();
-            return forecast switch
-            {
-                var f when f.Contains("thunderstorm") => "11d",
-                var f when f.Contains("rain") => "10d",
-                var f when f.Contains("snow") => "13d",
-                var f when f.Contains("cloud") => "03d",
-                _ => "01d"
-            };
-        }
-
-        private double CalculateIntensity(NOAAConditionsProperties conditions)
-        {
-            var precipitationIntensity = conditions.Precipitation?.Value ?? 0;
-            var windIntensity = (conditions.WindSpeed?.Value ?? 0) / 50.0;
-
-            return Math.Min(100, (precipitationIntensity * 20 + windIntensity * 50));
-        }
-
-        private string GetStormType(NOAAConditionsProperties conditions)
-        {
-            var forecast = conditions.TextDescription?.ToLower() ?? "unknown";
-            return forecast switch
-            {
-                var f when f.Contains("thunderstorm") => "Thunderstorm",
-                var f when f.Contains("rain") => "Rain Storm",
-                var f when f.Contains("snow") => "Snow Storm",
-                var f when f.Contains("drizzle") => "Light Rain",
-                _ => "Weather System"
-            };
-        }
-
-        private string GetAlertLevel(NOAAConditionsProperties conditions)
-        {
-            var windSpeed = conditions.WindSpeed?.Value ?? 0;
-            var precipitation = conditions.Precipitation?.Value ?? 0;
-
-            if (windSpeed > 50 || precipitation > 2)
-                return "Warning";
-            if (windSpeed > 30 || precipitation > 1)
-                return "Watch";
-            return "Advisory";
-        }
-
         private double CalculateStormIntensity(double temperature, double windSpeed, double precipitation)
         {
             var windIntensity = Math.Min(1, windSpeed / 50.0); // Normalize wind speed (50 mph = max intensity)
@@ -282,9 +255,9 @@ namespace StormSafe.Services
             return stormTypes;
         }
 
-        private List<StormPathPoint> GeneratePredictedPath(List<NOAAPeriod> periods, double latitude, double longitude)
+        private List<Location> GeneratePredictedPath(List<NOAAPeriod> periods, double latitude, double longitude)
         {
-            var path = new List<StormPathPoint>();
+            var path = new List<Location>();
             var currentTime = DateTime.Now;
 
             if (!periods.Any())
@@ -309,16 +282,10 @@ namespace StormSafe.Services
                 var newLat = latitude + (distanceDegrees * Math.Cos(ToRadians(windDirection)));
                 var newLon = longitude + (distanceDegrees * Math.Sin(ToRadians(windDirection)));
 
-                path.Add(new StormPathPoint
+                path.Add(new Location
                 {
                     Latitude = newLat,
-                    Longitude = newLon,
-                    Time = currentTime.AddHours(hours),
-                    Intensity = CalculateStormIntensity(
-                        period.Temperature,
-                        double.Parse(period.WindSpeed?.Split(' ')[0] ?? "0"),
-                        0 // Precipitation not available in forecast periods
-                    )
+                    Longitude = newLon
                 });
             }
 
@@ -347,192 +314,6 @@ namespace StormSafe.Services
                 "NNW" => 337.5,
                 _ => 0 // Default to North if unknown
             };
-        }
-
-        private DateTime CalculateEstimatedArrivalTime(List<NOAAPeriod> periods, NOAAConditionsProperties conditions)
-        {
-            var currentIntensity = CalculateIntensity(conditions);
-
-            foreach (var period in periods)
-            {
-                var forecastIntensity = CalculateIntensity(period);
-
-                if (forecastIntensity > 30 ||
-                    (period.ShortForecast != conditions.TextDescription &&
-                     (period.ShortForecast?.Contains("Rain") == true || period.ShortForecast?.Contains("Thunderstorm") == true)))
-                {
-                    return DateTime.Parse(period.StartTime ?? DateTime.Now.ToString());
-                }
-            }
-
-            return DateTime.Now.AddHours(2);
-        }
-
-        private double CalculateIntensity(NOAAPeriod period)
-        {
-            // Since precipitation is not available in forecast periods, we'll use wind speed only
-            var windSpeed = double.Parse(period.WindSpeed?.Split(' ')[0] ?? "0");
-            var windIntensity = windSpeed / 50.0;
-            return Math.Min(100, windIntensity * 100);
-        }
-
-        private bool IsStormPresent(NOAAConditionsProperties conditions, List<NOAAPeriod> periods)
-        {
-            // Check current conditions
-            if (conditions.TextDescription != null)
-            {
-                if (conditions.TextDescription.Contains("Thunderstorm") ||
-                    conditions.TextDescription.Contains("Rain") ||
-                    conditions.TextDescription.Contains("Snow"))
-                {
-                    return true;
-                }
-            }
-
-            // Check forecast
-            foreach (var period in periods)
-            {
-                if (period.ShortForecast != null)
-                {
-                    if (period.ShortForecast.Contains("Thunderstorm") ||
-                        period.ShortForecast.Contains("Rain") ||
-                        period.ShortForecast.Contains("Snow"))
-                    {
-                        return true;
-                    }
-                }
-            }
-
-            return false;
-        }
-
-        public async Task<RadarImageResponse> GetRadarImageUrl(double latitude, double longitude)
-        {
-            try
-            {
-                _logger.LogInformation("Getting radar image URL for coordinates: {Latitude}, {Longitude}", latitude, longitude);
-
-                // Get the nearest radar station
-                var stations = await GetRadarStationsAsync();
-                var nearestStation = FindNearestStation(stations.Features, latitude, longitude);
-
-                if (nearestStation == null)
-                {
-                    _logger.LogWarning("No operational radar stations found near coordinates: {Latitude}, {Longitude}", latitude, longitude);
-                    return new RadarImageResponse { Url = string.Empty };
-                }
-
-                // Use the NCEP OpenGeo WMS service for radar tiles
-                var timestamp = DateTimeOffset.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ");
-                var url = $"https://opengeo.ncep.noaa.gov/geoserver/conus/conus_bref_qcd/ows?service=WMS&version=1.3.0&request=GetMap&layers=conus_bref_qcd&styles=&bbox={{bbox}}&width=256&height=256&crs=EPSG:3857&format=image/png&time={timestamp}";
-
-                _logger.LogInformation("Generated radar image URL: {Url}", url);
-                return new RadarImageResponse { Url = url };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting radar image URL for coordinates: {Latitude}, {Longitude}", latitude, longitude);
-                return new RadarImageResponse { Url = string.Empty };
-            }
-        }
-
-        public async Task<RadarStationsResponse> GetRadarStationsAsync()
-        {
-            try
-            {
-                _logger.LogInformation("Fetching radar stations from NOAA API");
-                var response = await _httpClient.GetAsync($"{_noaaBaseUrl}/radar/stations");
-
-                if (!response.IsSuccessStatusCode)
-                {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    _logger.LogError("Failed to get radar stations. Status: {StatusCode}, Content: {Content}",
-                        response.StatusCode, errorContent);
-                    throw new Exception($"Failed to get radar stations: {response.StatusCode}");
-                }
-
-                var content = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("Radar stations response: {Response}", content);
-
-                var stations = JsonSerializer.Deserialize<RadarStationsResponse>(content);
-                if (stations?.Features == null)
-                {
-                    _logger.LogError("Failed to deserialize radar stations response or Features is null");
-                    throw new Exception("Failed to deserialize radar stations response");
-                }
-
-                // Filter for operational stations
-                var operationalStations = stations.Features.Where(f =>
-                    f.Properties?.Rda?.Properties?.OperabilityStatus == "OPERATIONAL" &&
-                    f.Properties.Rda.Properties.AlarmSummary == "None" &&
-                    f.Properties.Rda.Properties.Mode == "Clear Air").ToList();
-
-                _logger.LogInformation("Found {Count} operational radar stations", operationalStations.Count);
-                return new RadarStationsResponse { Features = operationalStations };
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error fetching radar stations");
-                throw;
-            }
-        }
-
-        private async Task<string> GetBestRadarStation(double latitude, double longitude)
-        {
-            try
-            {
-                var response = await _httpClient.GetAsync("https://api.weather.gov/radar/stations");
-                response.EnsureSuccessStatusCode();
-                var content = await response.Content.ReadAsStringAsync();
-                _logger.LogInformation("Radar stations response: {Response}", content);
-
-                var stations = JsonSerializer.Deserialize<RadarStationsResponse>(content);
-
-                if (stations?.Features == null)
-                {
-                    _logger.LogError("Failed to deserialize radar stations response or Features is null");
-                    throw new InvalidOperationException("Failed to get radar stations data");
-                }
-
-                var operationalStations = stations.Features
-                    .Where(s => s?.Properties?.Rda?.Properties?.OperabilityStatus == "RDA - On-line")
-                    .Where(s => s?.Properties?.Rda?.Properties?.AlarmSummary == "No Alarms")
-                    .Where(s => s?.Properties?.Rda?.Properties?.Mode == "Operational")
-                    .ToList();
-
-                if (!operationalStations.Any())
-                {
-                    _logger.LogWarning("No operational radar stations found");
-                    return "KOKX"; // Default to New York
-                }
-
-                var closestStation = operationalStations
-                    .OrderBy(s =>
-                    {
-                        if (s?.Geometry?.Coordinates == null || s.Geometry.Coordinates.Count < 2)
-                        {
-                            return double.MaxValue;
-                        }
-                        var lat2 = Convert.ToDouble(s.Geometry.Coordinates[1]);
-                        var lon2 = Convert.ToDouble(s.Geometry.Coordinates[0]);
-                        return CalculateDistance(latitude, longitude, lat2, lon2);
-                    })
-                    .FirstOrDefault();
-
-                if (closestStation?.Properties?.Id == null)
-                {
-                    _logger.LogWarning("No valid radar station found");
-                    return "KOKX"; // Default to New York
-                }
-
-                _logger.LogInformation($"Selected radar station: {closestStation.Properties.Id}");
-                return closestStation.Properties.Id;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Error getting best radar station");
-                return "KOKX"; // Default to New York
-            }
         }
 
         private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
@@ -584,6 +365,38 @@ namespace StormSafe.Services
             }
 
             return nearestStation;
+        }
+
+        public Task<string> GetRadarImageUrlAsync(double latitude, double longitude)
+        {
+            try
+            {
+                _logger.LogInformation($"Fetching radar image URL for coordinates: {latitude}, {longitude}");
+
+                // Convert lat/lon to tile coordinates
+                // This is a simplified conversion - you may need to adjust based on your specific needs
+                int zoom = 6; // Zoom level from the curl command
+                int x = (int)((longitude + 180) / 360 * Math.Pow(2, zoom));
+                int y = (int)((1 - Math.Log(Math.Tan(latitude * Math.PI / 180) + 1 / Math.Cos(latitude * Math.PI / 180)) / Math.PI) / 2 * Math.Pow(2, zoom));
+
+                _logger.LogInformation($"Calculated tile coordinates: x={x}, y={y}, zoom={zoom}");
+
+                // Use the mesonet.agron.iastate.edu endpoint with the correct format
+                // Using N0Q product type as shown in the curl command
+                return Task.FromResult($"https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{zoom}/{x}/{y}.png");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error fetching radar image URL");
+                throw;
+            }
+        }
+
+        public Task<List<string>> GetRadarStationsAsync()
+        {
+            var urls = new List<string>();
+            // Logic to get radar station URLs
+            return Task.FromResult(urls);
         }
     }
 }

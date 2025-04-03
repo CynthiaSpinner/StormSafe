@@ -3,15 +3,7 @@ using StormSafe.Services;
 using StormSafe.Models;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
-using System.Net.Http;
 using System.Threading.Tasks;
-using Microsoft.Extensions.Caching.Memory;
-using Polly;
-using Polly.Caching;
-using System.Net.Http.Headers;
-using System.Text.Json;
-using System;
-using System.Linq;
 
 namespace StormSafe.Controllers
 {
@@ -24,36 +16,13 @@ namespace StormSafe.Controllers
     {
         private readonly IWeatherService _weatherService;
         private readonly ILogger<WeatherController> _logger;
-        private readonly IMemoryCache _cache;
-        private readonly IAsyncPolicy<byte[]> _retryPolicy;
-        private readonly HttpClient _httpClient;
-        private readonly IHttpClientFactory _httpClientFactory;
 
         public WeatherController(
             IWeatherService weatherService,
-            ILogger<WeatherController> logger,
-            IMemoryCache cache,
-            IHttpClientFactory httpClientFactory)
+            ILogger<WeatherController> logger)
         {
             _weatherService = weatherService;
             _logger = logger;
-            _cache = cache;
-            _httpClient = httpClientFactory.CreateClient("WeatherAPI");
-            _httpClientFactory = httpClientFactory;
-
-            // Configure Polly retry policy
-            _retryPolicy = Policy<byte[]>
-                .Handle<HttpRequestException>()
-                .Or<TimeoutException>()
-                .WaitAndRetryAsync(3, retryAttempt =>
-                    TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-                    onRetry: (exception, timeSpan, retryCount, context) =>
-                    {
-                        _logger.LogWarning(
-                            "Retry {RetryCount} after {RetryTime}s delay",
-                            retryCount,
-                            timeSpan.TotalSeconds);
-                    });
         }
 
         /// <summary>
@@ -85,11 +54,6 @@ namespace StormSafe.Controllers
                 _logger.LogInformation("Successfully retrieved storm data for coordinates: lat={Latitude}, lon={Longitude}", latitude, longitude);
                 return Ok(stormData);
             }
-            catch (HttpRequestException ex)
-            {
-                _logger.LogError(ex, "HTTP request failed for coordinates: lat={Latitude}, lon={Longitude}", latitude, longitude);
-                return StatusCode(500, new { error = "Failed to fetch weather data from external service" });
-            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching storm data for coordinates: lat={Latitude}, lon={Longitude}", latitude, longitude);
@@ -106,109 +70,34 @@ namespace StormSafe.Controllers
         /// <response code="200">Returns the radar image URL</response>
         /// <response code="500">If there was an error fetching the URL</response>
         [HttpGet("radar-image")]
-        [ProducesResponseType(typeof(RadarImageResponse), StatusCodes.Status200OK)]
-        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
-        public async Task<IActionResult> GetRadarImage([FromQuery] double latitude, [FromQuery] double longitude)
+        public async Task<ActionResult<RadarImageResponse>> GetRadarImage([FromQuery] double latitude, [FromQuery] double longitude)
         {
             try
             {
-                var response = await _weatherService.GetRadarImageUrl(latitude, longitude);
-                if (string.IsNullOrEmpty(response.Url))
-                {
-                    return StatusCode(StatusCodes.Status500InternalServerError, "Failed to get radar image URL");
-                }
-                return Ok(response);
+                _logger.LogInformation("Getting radar image for coordinates: lat={Latitude}, lon={Longitude}", latitude, longitude);
+                var url = await _weatherService.GetRadarImageUrlAsync(latitude, longitude);
+                return Ok(new RadarImageResponse { Url = url });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error getting radar image");
-                return StatusCode(StatusCodes.Status500InternalServerError, "An error occurred while getting the radar image");
+                _logger.LogError(ex, "Error getting radar image for coordinates: lat={Latitude}, lon={Longitude}", latitude, longitude);
+                return StatusCode(500, new { error = "An unexpected error occurred while fetching radar image" });
             }
         }
 
-        [HttpGet("radar/{station}/{product}")]
-        public async Task<IActionResult> GetRadarImage(
-            string station,
-            string product,
-            [FromQuery] int? x = null,
-            [FromQuery] int? y = null,
-            [FromQuery] int? z = null,
-            [FromQuery] long? t = null)
+        [HttpGet("radar/{stationId}/{product}")]
+        public ActionResult<string> GetRadarByStation(string stationId, string product)
         {
             try
             {
-                _logger.LogInformation("Fetching radar image for station {Station}, product {Product}", station, product);
-
-                // For N0R (base reflectivity), try multiple URL formats
-                if (product.Equals("N0R", StringComparison.OrdinalIgnoreCase))
-                {
-                    using var client = _httpClientFactory.CreateClient();
-                    client.DefaultRequestHeaders.Add("User-Agent", "StormSafe/1.0");
-
-                    // Try formats in order of preference
-                    var urlFormats = new[]
-                    {
-                        $"https://radar.weather.gov/ridge/standard/{station}/N0R/latest.gif",
-                        $"https://radar.weather.gov/ridge/RadarImg/{product}/{station}/{station}_{product}_0.gif",
-                        $"https://radar.weather.gov/ridge/standard/{station}_{product}.gif"
-                    };
-
-                    foreach (var url in urlFormats)
-                    {
-                        _logger.LogInformation("Trying radar URL: {Url}", url);
-                        try
-                        {
-                            var response = await client.GetAsync(url);
-                            if (response.IsSuccessStatusCode)
-                            {
-                                var imageBytes = await response.Content.ReadAsByteArrayAsync();
-                                return File(imageBytes, "image/gif");
-                            }
-                            else
-                            {
-                                _logger.LogWarning("Failed to fetch from {Url}. Status: {Status}",
-                                    url, response.StatusCode);
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogWarning(ex, "Error fetching from {Url}", url);
-                        }
-                    }
-
-                    _logger.LogWarning("All URL formats failed for station {Station}", station);
-                    return NotFound();
-                }
-
-                // For other products, use the standard format
-                var standardUrl = $"https://radar.weather.gov/ridge/standard/{station}/{product}/latest.gif";
-                _logger.LogInformation("Fetching standard radar image from: {Url}", standardUrl);
-
-                try
-                {
-                    using var client = _httpClientFactory.CreateClient();
-                    client.DefaultRequestHeaders.Add("User-Agent", "StormSafe/1.0");
-
-                    var response = await client.GetAsync(standardUrl);
-                    if (response.IsSuccessStatusCode)
-                    {
-                        var imageBytes = await response.Content.ReadAsByteArrayAsync();
-                        return File(imageBytes, "image/gif");
-                    }
-
-                    _logger.LogWarning("Failed to fetch standard radar image for station {Station}", station);
-                    return NotFound();
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error fetching standard radar image for station {Station}", station);
-                    return StatusCode(500, "Error fetching radar image");
-                }
+                _logger.LogInformation("Getting radar image for station: {StationId}, product: {Product}", stationId, product);
+                var url = $"https://radar.weather.gov/ridge/standard/{stationId}_{product}.png";
+                return Ok(url);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in GetRadarImage for station {Station}, product {Product}", station, product);
-                return StatusCode(500, "Error processing radar image request");
+                _logger.LogError(ex, "Error getting radar image for station: {StationId}, product: {Product}", stationId, product);
+                return StatusCode(500, new { error = "An unexpected error occurred while fetching radar image" });
             }
         }
 

@@ -1,4 +1,4 @@
-namespace Stormsafe.Models;
+namespace StormSafe.Models;
 
 public class ErrorViewModel
 {

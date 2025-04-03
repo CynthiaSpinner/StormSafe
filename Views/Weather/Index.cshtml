@@ -12,7 +12,8 @@
                 <div class="card-body">
                     <div id="radar-container" style="height: 500px; position: relative;">
                         <div id="map" style="height: 100%;"></div>
-                        <div id="radar-overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;">
+                        <div id="radar-overlay"
+                            style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;">
                         </div>
                     </div>
                 </div>
@@ -24,29 +25,26 @@
                     <h3>Storm Information</h3>
                 </div>
                 <div class="card-body">
-                    <div id="storm-info">
-                        <div class="mb-3">
-                            <h5>Storm Speed</h5>
-                            <p id="storm-speed" class="h3">-- mph</p>
-                        </div>
-                        <div class="mb-3">
-                            <h5>Direction</h5>
-                            <p id="storm-direction" class="h3">--°</p>
-                        </div>
-                        <div class="mb-3">
-                            <h5>Estimated Arrival</h5>
-                            <p id="arrival-time" class="h3">--:--</p>
-                        </div>
-                        <div class="mb-3">
-                            <h5>Distance</h5>
-                            <p id="storm-distance" class="h3">-- miles</p>
-                        </div>
-                        <div class="mb-3">
-                            <h5>Intensity</h5>
-                            <div class="progress">
-                                <div id="storm-intensity" class="progress-bar" role="progressbar" style="width: 0%">
-                                </div>
-                            </div>
+                    <div class="mb-3">
+                        <h5>Storm Speed</h5>
+                        <p id="storm-speed">-- mph</p>
+                    </div>
+                    <div class="mb-3">
+                        <h5>Storm Direction</h5>
+                        <p id="storm-direction">--°</p>
+                    </div>
+                    <div class="mb-3">
+                        <h5>Estimated Arrival</h5>
+                        <p id="arrival-time">--:--</p>
+                    </div>
+                    <div class="mb-3">
+                        <h5>Distance to You</h5>
+                        <p id="storm-distance">-- miles</p>
+                    </div>
+                    <div class="mb-3">
+                        <h5>Storm Intensity</h5>
+                        <div class="progress">
+                            <div id="storm-intensity" class="progress-bar" role="progressbar" style="width: 0%"></div>
                         </div>
                     </div>
                 </div>
@@ -90,13 +88,14 @@
             try {
                 const response = await fetch(`/api/weather/storm-data?latitude=${location.lat}&longitude=${location.lng}`);
                 const data = await response.json();
+                console.log('Storm data:', data);
 
                 // Update storm information
-                document.getElementById('storm-speed').textContent = `${data.speed} mph`;
-                document.getElementById('storm-direction').textContent = `${data.direction}°`;
-                document.getElementById('arrival-time').textContent = new Date(data.estimatedArrivalTime).toLocaleTimeString();
-                document.getElementById('storm-distance').textContent = `${data.distanceToUser} miles`;
-                document.getElementById('storm-intensity').style.width = `${data.intensity}%`;
+                document.getElementById('storm-speed').textContent = `${data.speed || '--'} mph`;
+                document.getElementById('storm-direction').textContent = `${data.direction || '--'}°`;
+                document.getElementById('arrival-time').textContent = data.estimatedArrivalTime ? new Date(data.estimatedArrivalTime).toLocaleTimeString() : '--:--';
+                document.getElementById('storm-distance').textContent = `${data.distanceToUser || '--'} miles`;
+                document.getElementById('storm-intensity').style.width = `${data.intensity || 0}%`;
 
                 // Update radar overlay
                 updateRadarOverlay(data.radarImageUrl);
@@ -106,10 +105,19 @@
         }
 
         function updateRadarOverlay(radarUrl) {
-            const radarOverlay = document.getElementById('radar-overlay');
-            radarOverlay.style.backgroundImage = `url(${radarUrl})`;
-            radarOverlay.style.backgroundSize = 'cover';
-            radarOverlay.style.opacity = '0.7';
+            if (radarOverlay) {
+                radarOverlay.setMap(null);
+            }
+
+            if (radarUrl) {
+                const bounds = map.getBounds();
+                radarOverlay = new google.maps.GroundOverlay(
+                    radarUrl,
+                    bounds,
+                    { opacity: 0.7 }
+                );
+                radarOverlay.setMap(map);
+            }
         }
 
         // Initialize the map when the page loads

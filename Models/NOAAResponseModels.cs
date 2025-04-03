@@ -53,23 +53,17 @@ namespace StormSafe.Models
     public class ObservationStationsResponse
     {
         [JsonPropertyName("features")]
-        public List<ObservationStationFeature>? Features { get; set; }
+        public List<ObservationStationFeature> Features { get; set; } = new();
     }
 
     public class ObservationStationFeature
     {
         [JsonPropertyName("properties")]
-        public ObservationStationProperties? Properties { get; set; }
+        public ObservationStationProperties Properties { get; set; } = new();
     }
 
     public class ObservationStationProperties
     {
-        [JsonPropertyName("stationIdentifier")]
-        public string? StationIdentifier { get; set; }
-
-        [JsonPropertyName("name")]
-        public string? Name { get; set; }
-
         [JsonPropertyName("latestObservation")]
         public string? LatestObservation { get; set; }
     }
@@ -77,20 +71,11 @@ namespace StormSafe.Models
     public class GridPointResponse
     {
         [JsonPropertyName("properties")]
-        public GridPointProperties? Properties { get; set; }
+        public GridPointProperties Properties { get; set; } = new();
     }
 
     public class GridPointProperties
     {
-        [JsonPropertyName("gridId")]
-        public string? GridId { get; set; }
-
-        [JsonPropertyName("gridX")]
-        public int GridX { get; set; }
-
-        [JsonPropertyName("gridY")]
-        public int GridY { get; set; }
-
         [JsonPropertyName("forecast")]
         public string? Forecast { get; set; }
 
@@ -101,40 +86,46 @@ namespace StormSafe.Models
     public class NOAAConditions
     {
         [JsonPropertyName("properties")]
-        public NOAAConditionsProperties? Properties { get; set; }
+        public NOAAConditionsProperties Properties { get; set; } = new();
     }
 
     public class NOAAConditionsProperties
     {
-        [JsonPropertyName("textDescription")]
-        public string? TextDescription { get; set; }
-
         [JsonPropertyName("temperature")]
         public NOAAValue? Temperature { get; set; }
 
         [JsonPropertyName("windSpeed")]
-        public NOAAValue? WindSpeed { get; set; }
+        public NOAADirectionValue? WindSpeed { get; set; }
 
         [JsonPropertyName("windDirection")]
-        public NOAAValue? WindDirection { get; set; }
+        public NOAADirectionValue? WindDirection { get; set; }
+
+        [JsonPropertyName("precipitation")]
+        public NOAADirectionValue? Precipitation { get; set; }
 
         [JsonPropertyName("barometricPressure")]
         public NOAAValue? BarometricPressure { get; set; }
 
-        [JsonPropertyName("precipitation")]
-        public NOAAValue? Precipitation { get; set; }
+        [JsonPropertyName("textDescription")]
+        public string? TextDescription { get; set; }
+    }
 
-        [JsonPropertyName("relativeHumidity")]
-        public NOAAValue? RelativeHumidity { get; set; }
+    public class NOAADirectionValue
+    {
+        [JsonPropertyName("value")]
+        public double? Value { get; set; }
 
-        [JsonPropertyName("visibility")]
-        public NOAAValue? Visibility { get; set; }
+        [JsonPropertyName("unitCode")]
+        public string? UnitCode { get; set; }
+
+        [JsonPropertyName("direction")]
+        public string? Direction { get; set; }
     }
 
     public class NOAAValue
     {
         [JsonPropertyName("value")]
-        public double Value { get; set; }
+        public double? Value { get; set; }
 
         [JsonPropertyName("unitCode")]
         public string? UnitCode { get; set; }
@@ -143,7 +134,7 @@ namespace StormSafe.Models
     public class NOAAForecastResponse
     {
         [JsonPropertyName("properties")]
-        public NOAAForecastProperties? Properties { get; set; }
+        public NOAAForecastProperties Properties { get; set; } = new();
     }
 
     public class NOAAForecastProperties
@@ -154,26 +145,14 @@ namespace StormSafe.Models
 
     public class NOAAPeriod
     {
-        [JsonPropertyName("number")]
-        public int Number { get; set; }
-
-        [JsonPropertyName("name")]
-        public string? Name { get; set; }
-
         [JsonPropertyName("startTime")]
         public string? StartTime { get; set; }
 
         [JsonPropertyName("endTime")]
         public string? EndTime { get; set; }
 
-        [JsonPropertyName("isDaytime")]
-        public bool IsDaytime { get; set; }
-
         [JsonPropertyName("temperature")]
         public int Temperature { get; set; }
-
-        [JsonPropertyName("temperatureUnit")]
-        public string? TemperatureUnit { get; set; }
 
         [JsonPropertyName("windSpeed")]
         public string? WindSpeed { get; set; }

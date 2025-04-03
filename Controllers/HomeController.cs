@@ -1,28 +1,19 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration;
-using StormSafe.Services;
-using Stormsafe.Models;
+using StormSafe.Models;
 
-namespace Stormsafe.Controllers;
+namespace StormSafe.Controllers;
 
 public class HomeController : Controller
 {
     private readonly ILogger<HomeController> _logger;
-    private readonly IWeatherService _weatherService;
 
-    public HomeController(ILogger<HomeController> logger, IWeatherService weatherService)
+    public HomeController(ILogger<HomeController> logger)
     {
         _logger = logger;
-        _weatherService = weatherService;
     }
 
     public IActionResult Index()
-    {
-        return View();
-    }
-
-    public IActionResult Privacy()
     {
         return View();
     }
