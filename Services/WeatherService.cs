@@ -6,7 +6,6 @@ using Microsoft.Extensions.Configuration;
 using StormSafe.Models;
 using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
-using System.Linq;
 using System.Net.Http.Headers;
 using System.Collections.Generic;
 
