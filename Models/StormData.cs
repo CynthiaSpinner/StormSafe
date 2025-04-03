@@ -6,28 +6,38 @@ namespace StormSafe.Models
 {
     public class StormData
     {
+        public required Location CurrentLocation { get; set; }
+        public double Intensity { get; set; }
+        public required List<string> StormTypes { get; set; }
+        public required List<StormPathPoint> PredictedPath { get; set; }
+        public required CurrentConditions CurrentConditions { get; set; }
+        public required List<ForecastPeriod> Forecast { get; set; }
+    }
+
+    public class Location
+    {
         public double Latitude { get; set; }
         public double Longitude { get; set; }
-        public double Speed { get; set; } // Speed in mph
-        public double Direction { get; set; } // Direction in degrees
-        public double Intensity { get; set; } // Storm intensity (0-100)
-        public DateTime EstimatedArrivalTime { get; set; }
-        public double DistanceToUser { get; set; } // Distance in miles
-        public string? StormType { get; set; }
-        public string? RadarImageUrl { get; set; }
+    }
 
-        // New fields
-        public double PrecipitationRate { get; set; } // Inches per hour
-        public double WindSpeed { get; set; } // Wind speed in mph
-        public double WindGust { get; set; } // Wind gusts in mph
-        public string? AlertLevel { get; set; } // Watch, Warning, etc.
-        public string? StormDescription { get; set; }
-        public List<StormPathPoint> PredictedPath { get; set; } = new();
-        public double HailSize { get; set; } // Hail size in inches
-        public bool HasLightning { get; set; }
-        public double Visibility { get; set; } // Visibility in miles
-        public List<DailyForecast> DailyForecasts { get; set; } = new();
-        public List<HourlyForecast> HourlyForecasts { get; set; } = new();
+    public class CurrentConditions
+    {
+        public double Temperature { get; set; }
+        public double WindSpeed { get; set; }
+        public double WindDirection { get; set; }
+        public double Precipitation { get; set; }
+        public required string Description { get; set; }
+    }
+
+    public class ForecastPeriod
+    {
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
+        public int Temperature { get; set; }
+        public double WindSpeed { get; set; }
+        public required string WindDirection { get; set; }
+        public required string Description { get; set; }
+        public required string DetailedForecast { get; set; }
     }
 
     public class StormPathPoint

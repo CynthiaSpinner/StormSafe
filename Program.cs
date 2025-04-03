@@ -4,8 +4,20 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
-builder.Services.AddHttpClient();
 builder.Services.AddScoped<IWeatherService, WeatherService>();
+builder.Services.AddMemoryCache();
+builder.Services.AddHttpClient("WeatherAPI", client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "StormSafe/1.0");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
+
+// Configure HTTP client with custom User-Agent for NOAA API
+builder.Services.AddHttpClient("NOAA", client =>
+{
+    client.DefaultRequestHeaders.Add("User-Agent", "StormSafe/1.0 (https://github.com/yourusername/StormSafe; your.email@example.com)");
+    client.Timeout = TimeSpan.FromSeconds(30);
+});
 
 // Add CORS
 builder.Services.AddCors(options =>
