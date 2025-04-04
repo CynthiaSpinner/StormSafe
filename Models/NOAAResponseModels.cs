@@ -60,12 +60,36 @@ namespace StormSafe.Models
     {
         [JsonPropertyName("properties")]
         public ObservationStationProperties Properties { get; set; } = new();
+
+        [JsonPropertyName("geometry")]
+        public NOAAGeometry Geometry { get; set; } = new();
     }
 
     public class ObservationStationProperties
     {
         [JsonPropertyName("latestObservation")]
         public string? LatestObservation { get; set; }
+
+        [JsonPropertyName("stationIdentifier")]
+        public string StationIdentifier { get; set; } = string.Empty;
+
+        [JsonPropertyName("name")]
+        public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("elevation")]
+        public NOAAValue Elevation { get; set; } = new();
+
+        [JsonPropertyName("timeZone")]
+        public string TimeZone { get; set; } = string.Empty;
+
+        [JsonPropertyName("forecast")]
+        public string Forecast { get; set; } = string.Empty;
+
+        [JsonPropertyName("county")]
+        public string County { get; set; } = string.Empty;
+
+        [JsonPropertyName("fireWeatherZone")]
+        public string FireWeatherZone { get; set; } = string.Empty;
     }
 
     public class GridPointResponse
@@ -89,10 +113,10 @@ namespace StormSafe.Models
     public class NOAAGeometry
     {
         [JsonPropertyName("type")]
-        public string? Type { get; set; }
+        public string Type { get; set; } = "Point";
 
         [JsonPropertyName("coordinates")]
-        public List<double>? Coordinates { get; set; }
+        public List<double> Coordinates { get; set; } = new();
     }
 
     public class NOAAConditions
@@ -230,10 +254,10 @@ namespace StormSafe.Models
     public class NOAAValue
     {
         [JsonPropertyName("value")]
-        public double? Value { get; set; }
+        public double Value { get; set; }
 
         [JsonPropertyName("unitCode")]
-        public string? UnitCode { get; set; }
+        public string UnitCode { get; set; } = string.Empty;
     }
 
     public class NOAAForecastResponse
@@ -321,5 +345,23 @@ namespace StormSafe.Models
 
         [JsonPropertyName("importance")]
         public double Importance { get; set; }
+    }
+
+    public class ObservationResponse
+    {
+        [JsonPropertyName("properties")]
+        public ObservationProperties Properties { get; set; } = new();
+    }
+
+    public class ObservationProperties
+    {
+        [JsonPropertyName("temperature")]
+        public NOAAValue? Temperature { get; set; }
+
+        [JsonPropertyName("windSpeed")]
+        public NOAAValue? WindSpeed { get; set; }
+
+        [JsonPropertyName("timestamp")]
+        public DateTime Timestamp { get; set; }
     }
 }

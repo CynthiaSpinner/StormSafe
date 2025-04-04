@@ -1,10 +1,23 @@
 using StormSafe.Services;
 using System.Net.Http.Headers;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+// Add Swagger/OpenAPI services
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "StormSafe API",
+        Version = "v1",
+        Description = "API for retrieving weather and storm data"
+    });
+});
 
 // Configure HTTP client for NOAA API
 builder.Services.AddHttpClient("NOAA", client =>
@@ -14,6 +27,10 @@ builder.Services.AddHttpClient("NOAA", client =>
     client.DefaultRequestHeaders.Accept.Clear();
     client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/geo+json"));
     client.Timeout = TimeSpan.FromSeconds(30);
+}).ConfigurePrimaryHttpMessageHandler(() => new HttpClientHandler
+{
+    AllowAutoRedirect = true,
+    MaxAutomaticRedirections = 5
 });
 
 // Register WeatherService with the NOAA HttpClient
@@ -54,6 +71,13 @@ var app = builder.Build();
 if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
+    // Enable Swagger UI in development
+    app.UseSwagger();
+    app.UseSwaggerUI(c =>
+    {
+        c.SwaggerEndpoint("/swagger/v1/swagger.json", "StormSafe API V1");
+        c.RoutePrefix = "swagger";
+    });
 }
 else
 {

@@ -8,16 +8,20 @@ using System.Text.Json.Serialization;
 using Microsoft.Extensions.Logging;
 using System.Net.Http.Headers;
 using System.Collections.Generic;
+using System.Linq;
+using System.IO;
 
 namespace StormSafe.Services
 {
     public interface IWeatherService
     {
-        Task<StormData> GetStormDataAsync(double latitude, double longitude);
+        Task<StormData?> GetStormDataAsync(double latitude, double longitude);
         Task<StormData> GetStormDataByZipAsync(string zipCode);
         Task<StormData> GetStormDataByCityStateAsync(string city, string state);
         Task<string> GetRadarImageUrlAsync(double latitude, double longitude, int zoom);
         Task<List<string>> GetRadarStationsAsync();
+        Task<List<ObservationStationFeature>> GetAllStationsAsync();
+        Task<List<ObservationStationFeature>> GetNearestStationsAsync(double latitude, double longitude, int maxStations = 5);
     }
 
     public class WeatherService : IWeatherService
@@ -35,203 +39,227 @@ namespace StormSafe.Services
             _nominatimBaseUrl = "https://nominatim.openstreetmap.org";
         }
 
-        public async Task<StormData> GetStormDataAsync(double latitude, double longitude)
+        public async Task<StormData?> GetStormDataAsync(double latitude, double longitude)
         {
             try
             {
-                _logger.LogInformation("Starting to fetch weather data for coordinates: {Latitude}, {Longitude}", latitude, longitude);
+                _logger.LogInformation("Getting storm data for coordinates: {Latitude}, {Longitude}", latitude, longitude);
 
-                // Get the grid point for the coordinates
-                var gridPointUrl = $"{_noaaBaseUrl}/points/{latitude},{longitude}";
-                _logger.LogInformation("Fetching grid point from: {GridPointUrl}", gridPointUrl);
+                // Read the saved station data
+                string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "response_1743802163730.json");
+                _logger.LogInformation("Reading stations from file: {FilePath}", filePath);
 
-                try
+                // Try to read the saved station data from various possible locations
+                string fileName = "response_1743802163730.json";
+                string[] possiblePaths = new[]
                 {
-                    // Get grid point data
-                    var gridPointResponse = await _httpClient.GetAsync(gridPointUrl);
-                    if (!gridPointResponse.IsSuccessStatusCode)
+                    // Current directory
+                    fileName,
+                    // Bin directory
+                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName),
+                    // One level up from bin
+                    Path.Combine(Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory)?.FullName ?? "", fileName),
+                    // Two levels up from bin
+                    Path.Combine(Directory.GetParent(Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory)?.FullName ?? "")?.FullName ?? "", fileName),
+                    // project root folder
+                    Path.Combine(Directory.GetCurrentDirectory(), fileName)
+                };
+
+                string? foundPath = null;
+                foreach (var path in possiblePaths)
+                {
+                    _logger.LogInformation("Trying to find stations file at: {Path}", path);
+                    if (File.Exists(path))
                     {
-                        var errorContent = await gridPointResponse.Content.ReadAsStringAsync();
-                        _logger.LogError("Failed to get grid point data: {StatusCode}, Content: {Content}",
-                            gridPointResponse.StatusCode, errorContent);
-                        throw new Exception($"Failed to get grid point data: {gridPointResponse.StatusCode} - {errorContent}");
+                        foundPath = path;
+                        _logger.LogInformation("Found stations file at: {Path}", path);
+                        break;
                     }
+                }
 
-                    var gridPointContent = await gridPointResponse.Content.ReadAsStringAsync();
-                    _logger.LogInformation("Grid point response: {Content}", gridPointContent);
+                if (foundPath == null)
+                {
+                    _logger.LogError("Could not find stations file in any of the expected locations");
+                    return null;
+                }
 
-                    var gridPoint = JsonSerializer.Deserialize<GridPointResponse>(gridPointContent);
-                    if (gridPoint?.Properties == null)
+                var stationsJson = await File.ReadAllTextAsync(foundPath);
+                var allStations = JsonSerializer.Deserialize<List<ObservationStationFeature>>(stationsJson);
+
+                if (allStations == null || !allStations.Any())
+                {
+                    _logger.LogWarning("No stations found in saved data");
+                    return null;
+                }
+
+                _logger.LogInformation("Found {Count} total stations in saved data", allStations.Count);
+
+                // Find the closest stations (within 50km)
+                var validStations = allStations
+                    .Where(station => station.Geometry.Coordinates.Count == 2)
+                    .Select(station => new
                     {
-                        _logger.LogError("Failed to deserialize grid point response or Properties is null. Content: {Content}",
-                            gridPointContent);
-                        throw new Exception("Failed to deserialize grid point response");
-                    }
+                        Station = station,
+                        Distance = Geospatial.CalculateDistance(
+                            latitude,
+                            longitude,
+                            station.Geometry.Coordinates[1], // latitude
+                            station.Geometry.Coordinates[0]  // longitude
+                        )
+                    })
+                    .Where(x => x.Distance <= 50) // within 50km
+                    .OrderBy(x => x.Distance)
+                    .Take(5) // Get top 5 closest stations
+                    .ToList();
 
-                    _logger.LogInformation("Grid point data - Forecast URL: {ForecastUrl}, Stations URL: {StationsUrl}",
-                        gridPoint.Properties.Forecast, gridPoint.Properties.ObservationStations);
+                _logger.LogInformation("Found {Count} stations within 50km", validStations.Count);
 
-                    // Get observation stations
-                    var stationsResponse = await _httpClient.GetAsync(gridPoint.Properties.ObservationStations);
-                    if (!stationsResponse.IsSuccessStatusCode)
+                if (!validStations.Any())
+                {
+                    _logger.LogWarning("No stations found within 50km of coordinates");
+                    return null;
+                }
+
+                // Try each station until we find valid data
+                foreach (var stationInfo in validStations)
+                {
+                    var station = stationInfo.Station;
+                    _logger.LogInformation("Checking station {StationId} ({Name}) at distance {Distance}km",
+                        station.Properties.StationIdentifier,
+                        station.Properties.Name,
+                        stationInfo.Distance);
+
+                    try
                     {
-                        _logger.LogError("Failed to get observation stations: {StatusCode}", stationsResponse.StatusCode);
-                        throw new Exception($"Failed to get observation stations: {stationsResponse.StatusCode}");
-                    }
+                        // Fetch latest observation directly using the station identifier
+                        string observationUrl = $"https://api.weather.gov/stations/{station.Properties.StationIdentifier}/observations/latest";
+                        _logger.LogInformation("Fetching observation data from: {Url}", observationUrl);
 
-                    var stationsContent = await stationsResponse.Content.ReadAsStringAsync();
-                    _logger.LogInformation("Stations response: {Content}", stationsContent);
+                        var observationResponse = await _httpClient.GetAsync(observationUrl);
 
-                    var stations = JsonSerializer.Deserialize<ObservationStationsResponse>(stationsContent);
-                    if (stations?.Features == null || !stations.Features.Any())
-                    {
-                        _logger.LogError("No observation stations found");
-                        throw new Exception("No observation stations found");
-                    }
-
-                    // Get latest observation
-                    var latestObservationUrl = stations.Features[0].Properties.LatestObservation;
-                    _logger.LogInformation("Fetching latest observation from: {Url}", latestObservationUrl);
-
-                    var conditionsResponse = await _httpClient.GetAsync(latestObservationUrl);
-                    if (!conditionsResponse.IsSuccessStatusCode)
-                    {
-                        _logger.LogError("Failed to get conditions: {StatusCode}", conditionsResponse.StatusCode);
-                        throw new Exception($"Failed to get conditions: {conditionsResponse.StatusCode}");
-                    }
-
-                    var conditionsContent = await conditionsResponse.Content.ReadAsStringAsync();
-                    _logger.LogInformation("Conditions response: {Content}", conditionsContent);
-
-                    var conditions = JsonSerializer.Deserialize<NOAAConditions>(conditionsContent);
-                    if (conditions?.Properties == null)
-                    {
-                        _logger.LogError("Failed to deserialize conditions response or Properties is null");
-                        throw new Exception("Failed to deserialize conditions response");
-                    }
-
-                    // Fetch forecast data
-                    var forecastUrl = gridPoint.Properties.Forecast;
-                    if (string.IsNullOrEmpty(forecastUrl))
-                    {
-                        _logger.LogError("Forecast URL is null or empty");
-                        throw new Exception("Forecast URL is missing");
-                    }
-
-                    var forecastResponse = await _httpClient.GetAsync(forecastUrl);
-                    if (!forecastResponse.IsSuccessStatusCode)
-                    {
-                        _logger.LogError("Failed to fetch forecast data: {StatusCode}", forecastResponse.StatusCode);
-                        throw new Exception($"Failed to fetch forecast data: {forecastResponse.StatusCode}");
-                    }
-
-                    var forecastContent = await forecastResponse.Content.ReadAsStringAsync();
-                    var forecast = JsonSerializer.Deserialize<NOAAForecastResponse>(forecastContent);
-                    if (forecast?.Properties == null)
-                    {
-                        _logger.LogError("Failed to deserialize forecast response or Properties is null");
-                        throw new Exception("Failed to deserialize forecast response");
-                    }
-
-                    // Fetch alerts data
-                    var alertsUrl = gridPoint.Properties.Alerts;
-                    var alerts = new List<WeatherAlert>();
-                    if (!string.IsNullOrEmpty(alertsUrl))
-                    {
-                        var alertsResponse = await _httpClient.GetAsync(alertsUrl);
-                        if (alertsResponse.IsSuccessStatusCode)
+                        if (!observationResponse.IsSuccessStatusCode)
                         {
-                            var alertsContent = await alertsResponse.Content.ReadAsStringAsync();
-                            var alertsData = JsonSerializer.Deserialize<NOAAAlertsResponse>(alertsContent);
-                            if (alertsData?.Features != null)
-                            {
-                                alerts = alertsData.Features.Select(f => new WeatherAlert
-                                {
-                                    Event = f.Properties?.Event ?? "Unknown",
-                                    Severity = f.Properties?.Severity ?? "Unknown",
-                                    Urgency = f.Properties?.Urgency ?? "Unknown",
-                                    Description = f.Properties?.Description ?? "No description available",
-                                    StartTime = DateTime.Parse(f.Properties?.Effective ?? DateTime.Now.ToString()),
-                                    EndTime = DateTime.Parse(f.Properties?.Expires ?? DateTime.Now.AddHours(1).ToString())
-                                }).ToList();
-                            }
+                            _logger.LogWarning("Failed to get observation data for station {StationId}, status: {StatusCode}",
+                                station.Properties.StationIdentifier,
+                                observationResponse.StatusCode);
+                            continue;
                         }
+
+                        var observationContent = await observationResponse.Content.ReadAsStringAsync();
+                        _logger.LogInformation("Received observation data: {Content}", observationContent);
+
+                        var observation = JsonSerializer.Deserialize<ObservationResponse>(observationContent);
+
+                        if (observation?.Properties == null)
+                        {
+                            _logger.LogWarning("Invalid observation data for station {StationId}", station.Properties.StationIdentifier);
+                            continue;
+                        }
+
+                        var temperature = observation.Properties.Temperature?.Value;
+                        var windSpeed = observation.Properties.WindSpeed?.Value;
+
+                        _logger.LogInformation("Station {StationId} data - Temperature: {Temperature}, WindSpeed: {WindSpeed}",
+                            station.Properties.StationIdentifier,
+                            temperature,
+                            windSpeed);
+
+                        if (temperature.HasValue && windSpeed.HasValue)
+                        {
+                            _logger.LogInformation("Found valid data at station {StationId}: Temp={Temperature}°C, Wind={WindSpeed}km/h",
+                                station.Properties.StationIdentifier,
+                                temperature.Value,
+                                windSpeed.Value);
+
+                            return new StormData
+                            {
+                                Temperature = temperature.Value,
+                                WindSpeed = windSpeed.Value,
+                                StationId = station.Properties.StationIdentifier,
+                                StationName = station.Properties.Name,
+                                Distance = stationInfo.Distance,
+                                Timestamp = observation.Properties.Timestamp,
+                                LastUpdated = DateTime.UtcNow
+                            };
+                        }
+
+                        _logger.LogWarning("Station {StationId} has missing temperature or wind speed data", station.Properties.StationIdentifier);
                     }
-
-                    _logger.LogInformation("Raw conditions data - Temp: {TempC}°C, Wind: {WindKmh} km/h, Precip: {PrecipMm} mm",
-                        conditions.Properties.Temperature?.Value,
-                        conditions.Properties.WindSpeed?.Value,
-                        conditions.Properties.PrecipitationLastHour?.Value);
-
-                    // Convert units from metric to imperial
-                    var tempC = conditions.Properties.Temperature?.Value ?? 0;
-                    var windSpeedKmh = conditions.Properties.WindSpeed?.Value ?? 0;
-                    var precipMm = conditions.Properties.PrecipitationLastHour?.Value ?? 0;
-                    var visibilityMeters = conditions.Properties.Visibility?.Value ?? 0;
-                    var windDirection = conditions.Properties.WindDirection?.Value ?? 0;
-                    var windGustKmh = conditions.Properties.WindGust?.Value ?? 0;
-                    var pressurePa = conditions.Properties.BarometricPressure?.Value ?? 0;
-
-                    // Convert temperature from Celsius to Fahrenheit
-                    var tempF = (tempC * 9 / 5) + 32;
-
-                    // Convert wind speed from km/h to mph
-                    var windSpeedMph = windSpeedKmh * 0.621371;
-                    var windGustMph = windGustKmh * 0.621371;
-
-                    // Convert precipitation from mm to inches
-                    var precipInches = precipMm * 0.0393701;
-
-                    // Convert visibility from meters to miles
-                    var visibilityMiles = visibilityMeters * 0.000621371;
-
-                    // Convert pressure from Pa to hPa (millibars)
-                    var pressureHpa = pressurePa / 100;
-
-                    _logger.LogInformation("Converted weather data - Temp: {TempF}°F, Wind: {WindMph} mph, Precip: {PrecipInches} in",
-                        tempF, windSpeedMph, precipInches);
-
-                    // Generate storm data with null checks
-                    var stormData = new StormData
+                    catch (Exception ex)
                     {
-                        CurrentLocation = new Location { Latitude = latitude, Longitude = longitude },
-                        StormTypes = DetermineStormTypes(tempF, windSpeedMph, precipInches),
-                        CurrentConditions = new CurrentConditions
-                        {
-                            Temperature = Math.Round(tempF, 1),
-                            WindSpeed = Math.Round(windSpeedMph, 1),
-                            WindDirection = windDirection,
-                            Precipitation = Math.Round(precipInches, 2),
-                            Description = conditions.Properties.TextDescription ?? "No current conditions available"
-                        },
-                        Forecast = forecast.Properties.Periods?.Select(p => new ForecastPeriod
-                        {
-                            StartTime = DateTime.Parse(p.StartTime ?? DateTime.Now.ToString()),
-                            EndTime = DateTime.Parse(p.EndTime ?? DateTime.Now.AddHours(1).ToString()),
-                            Temperature = p.Temperature,
-                            WindSpeed = double.Parse(p.WindSpeed?.Split(' ')[0] ?? "0"),
-                            WindDirection = p.WindDirection ?? "N",
-                            Description = p.ShortForecast ?? "Unknown",
-                            DetailedForecast = p.DetailedForecast ?? "No detailed forecast available"
-                        }).ToList() ?? new List<ForecastPeriod>(),
-                        PredictedPath = GeneratePredictedPath(forecast.Properties.Periods ?? new List<NOAAPeriod>(), latitude, longitude),
-                        Alerts = alerts
-                    };
+                        _logger.LogError(ex, "Error fetching data for station {StationId}", station.Properties.StationIdentifier);
+                    }
+                }
 
-                    _logger.LogInformation("Successfully retrieved storm data for coordinates: {Latitude}, {Longitude}", latitude, longitude);
-                    return stormData;
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Error fetching storm data for coordinates: {Latitude}, {Longitude}", latitude, longitude);
-                    throw;
-                }
+                _logger.LogWarning("No valid data found from any nearby stations");
+                return null;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error fetching storm data for coordinates: {Latitude}, {Longitude}", latitude, longitude);
-                throw;
+                _logger.LogError(ex, "Error getting storm data");
+                return null;
             }
+        }
+
+        private string DetermineStormType(NOAAConditionsProperties properties)
+        {
+            var windSpeed = properties.WindSpeed?.Value ?? 0;
+            var precipitation = properties.PrecipitationLastHour?.Value ?? 0;
+            var presentWeather = properties.PresentWeather ?? new List<object>();
+
+            // Check for thunderstorm indicators
+            if (presentWeather.Any(p => p.ToString()?.Contains("thunder", StringComparison.OrdinalIgnoreCase) == true))
+            {
+                return "Thunderstorm";
+            }
+
+            // Check for heavy rain
+            if (precipitation > 10) // More than 10mm per hour
+            {
+                return "Heavy Rain";
+            }
+
+            // Check for high winds
+            if (windSpeed > 50) // More than 50 km/h
+            {
+                return "High Winds";
+            }
+
+            // Check for snow
+            if (presentWeather.Any(p => p.ToString()?.Contains("snow", StringComparison.OrdinalIgnoreCase) == true))
+            {
+                return "Snow";
+            }
+
+            return "None";
+        }
+
+        private int CalculateStormIntensity(NOAAConditionsProperties properties)
+        {
+            var windSpeed = properties.WindSpeed?.Value ?? 0;
+            var precipitation = properties.PrecipitationLastHour?.Value ?? 0;
+            var presentWeather = properties.PresentWeather ?? new List<object>();
+
+            int intensity = 0;
+
+            // Wind intensity
+            if (windSpeed > 80) intensity += 3; // Very high winds
+            else if (windSpeed > 50) intensity += 2; // High winds
+            else if (windSpeed > 30) intensity += 1; // Moderate winds
+
+            // Precipitation intensity
+            if (precipitation > 20) intensity += 3; // Heavy rain
+            else if (precipitation > 10) intensity += 2; // Moderate rain
+            else if (precipitation > 5) intensity += 1; // Light rain
+
+            // Weather type intensity
+            if (presentWeather.Any(p => p.ToString()?.Contains("thunder", StringComparison.OrdinalIgnoreCase) == true))
+            {
+                intensity += 2;
+            }
+
+            // Cap intensity at 5
+            return Math.Min(intensity, 5);
         }
 
         private double CalculateStormIntensity(double temperature, double windSpeed, double precipitation)
@@ -530,7 +558,14 @@ namespace StormSafe.Services
                 }
 
                 var location = locations[0];
-                return await GetStormDataAsync(location.Lat, location.Lon);
+                var stormData = await GetStormDataAsync(location.Lat, location.Lon);
+
+                if (stormData == null)
+                {
+                    throw new Exception($"No storm data found for ZIP code: {zipCode}");
+                }
+
+                return stormData;
             }
             catch (Exception ex)
             {
@@ -562,7 +597,14 @@ namespace StormSafe.Services
                 }
 
                 var location = locations[0];
-                return await GetStormDataAsync(location.Lat, location.Lon);
+                var stormData = await GetStormDataAsync(location.Lat, location.Lon);
+
+                if (stormData == null)
+                {
+                    throw new Exception($"No storm data found for city: {city}, state: {state}");
+                }
+
+                return stormData;
             }
             catch (Exception ex)
             {
@@ -576,20 +618,92 @@ namespace StormSafe.Services
         {
             return new StormData
             {
-                CurrentLocation = new Location { Latitude = latitude, Longitude = longitude },
-                StormTypes = new List<string> { "Unknown" },
                 CurrentConditions = new CurrentConditions
                 {
                     Temperature = 0,
                     WindSpeed = 0,
-                    WindDirection = 0,
+                    WindDirection = "N",
                     Precipitation = 0,
-                    Description = "No current conditions available"
+                    Pressure = 0,
+                    Visibility = 0,
+                    CloudCover = 0,
+                    Humidity = 0,
+                    StormType = "None",
+                    StormIntensity = 0,
+                    StormDescription = "No current conditions available"
                 },
-                Forecast = new List<ForecastPeriod>(),
-                PredictedPath = new List<Location>(),
-                Alerts = new List<WeatherAlert>()
+                ForecastPeriods = new List<ForecastPeriod>(),
+                Alerts = new List<WeatherAlert>(),
+                LastUpdated = DateTime.UtcNow
             };
+        }
+
+        public async Task<List<ObservationStationFeature>> GetAllStationsAsync()
+        {
+            try
+            {
+                var stationsUrl = $"{_noaaBaseUrl}/stations";
+                _logger.LogInformation("Fetching stations from: {StationsUrl}", stationsUrl);
+
+                var response = await _httpClient.GetAsync(stationsUrl);
+                _logger.LogInformation("Stations API response status: {StatusCode}", response.StatusCode);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    _logger.LogWarning("Failed to get stations list, status code: {StatusCode}", response.StatusCode);
+                    return new List<ObservationStationFeature>();
+                }
+
+                var content = await response.Content.ReadAsStringAsync();
+                _logger.LogInformation("Stations API response content length: {Length}", content.Length);
+
+                var stationsResponse = JsonSerializer.Deserialize<ObservationStationsResponse>(content);
+
+                if (stationsResponse?.Features == null)
+                {
+                    _logger.LogWarning("Invalid stations response");
+                    return new List<ObservationStationFeature>();
+                }
+
+                return stationsResponse.Features;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error getting stations list");
+                return new List<ObservationStationFeature>();
+            }
+        }
+
+        public async Task<List<ObservationStationFeature>> GetNearestStationsAsync(double latitude, double longitude, int maxStations = 5)
+        {
+            try
+            {
+                var allStations = await GetAllStationsAsync();
+                var stationsWithDistance = new List<(ObservationStationFeature Station, double Distance)>();
+
+                foreach (var station in allStations)
+                {
+                    if (station.Geometry?.Coordinates != null && station.Geometry.Coordinates.Count >= 2)
+                    {
+                        var stationLat = station.Geometry.Coordinates[1];
+                        var stationLon = station.Geometry.Coordinates[0];
+                        var distance = Geospatial.CalculateDistance(latitude, longitude, stationLat, stationLon);
+                        stationsWithDistance.Add((station, distance));
+                    }
+                }
+
+                // Sort by distance and take the nearest stations
+                return stationsWithDistance
+                    .OrderBy(x => x.Distance)
+                    .Take(maxStations)
+                    .Select(x => x.Station)
+                    .ToList();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error finding nearest stations for coordinates: {Latitude}, {Longitude}", latitude, longitude);
+                return new List<ObservationStationFeature>();
+            }
         }
     }
 }

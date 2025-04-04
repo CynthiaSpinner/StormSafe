@@ -351,6 +351,62 @@
         </div>
     </div>
     <div class="col-md-4">
+        <!-- Local Weather Data Card -->
+        <div class="card shadow-sm mb-4">
+            <div class="card-header bg-primary text-white">
+                <h3 class="mb-0">Local Weather Data</h3>
+            </div>
+            <div class="card-body">
+                <div id="weather-info" class="storm-info">
+                    <!-- Loading Indicator -->
+                    <div id="weather-loading-indicator" class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2">Loading weather data...</p>
+                    </div>
+
+                    <!-- Error Message -->
+                    <div id="weather-error-message" class="alert alert-danger d-none" role="alert">
+                        Error loading weather data. Please try again later.
+                    </div>
+
+                    <!-- Weather Station Info -->
+                    <div class="info-card">
+                        <h5>Weather Station</h5>
+                        <p id="station-name" class="info-value">--</p>
+                        <p id="station-distance" class="text-muted small">--</p>
+                    </div>
+
+                    <!-- Current Conditions -->
+                    <div class="info-card">
+                        <h5>Current Conditions</h5>
+                        <div class="row">
+                            <div class="col-6">
+                                <p class="info-label">Temperature</p>
+                                <p id="temperature" class="info-value">--°F</p>
+                            </div>
+                            <div class="col-6">
+                                <p class="info-label">Wind Speed</p>
+                                <p id="wind-speed" class="info-value">-- mph</p>
+                            </div>
+                        </div>
+                        <div class="row mt-2">
+                            <div class="col-6">
+                                <p class="info-label">Wind Direction</p>
+                                <p id="wind-direction" class="info-value">--°</p>
+                            </div>
+                            <div class="col-6">
+                                <p class="info-label">Last Updated</p>
+                                <p id="last-updated" class="info-value">--</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Storm Information Card -->
         <div class="card shadow-sm">
             <div class="card-header bg-primary text-white">
                 <h3 class="mb-0">Storm Information</h3>
@@ -390,31 +446,6 @@
                         <p id="storm-description" class="text-muted small">--</p>
                     </div>
 
-                    <!-- Current Conditions -->
-                    <div class="info-card">
-                        <h5>Current Conditions</h5>
-                        <div class="row">
-                            <div class="col-6">
-                                <p class="info-label">Temperature</p>
-                                <p id="temperature" class="info-value">--°F</p>
-                            </div>
-                            <div class="col-6">
-                                <p class="info-label">Wind Speed</p>
-                                <p id="wind-speed" class="info-value">-- mph</p>
-                            </div>
-                        </div>
-                        <div class="row mt-2">
-                            <div class="col-6">
-                                <p class="info-label">Wind Direction</p>
-                                <p id="wind-direction" class="info-value">--°</p>
-                            </div>
-                            <div class="col-6">
-                                <p class="info-label">Precipitation</p>
-                                <p id="precipitation" class="info-value">-- in</p>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Movement Information -->
                     <div class="info-card">
                         <h5>Movement</h5>
@@ -430,58 +461,17 @@
                         </div>
                     </div>
 
-                    <!-- Wind Information -->
-                    <div class="info-card">
-                        <h5>Wind Conditions</h5>
-                        <div class="row">
-                            <div class="col-6">
-                                <p class="info-label">Wind Gusts</p>
-                                <p id="wind-gust" class="info-value">-- mph</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Precipitation -->
-                    <div class="info-card">
-                        <h5>Precipitation</h5>
-                        <div class="row">
-                            <div class="col-6">
-                                <p class="info-label">Rate</p>
-                                <p id="precipitation-rate" class="info-value">-- in/hr</p>
-                            </div>
-                            <div class="col-6">
-                                <p class="info-label">Visibility</p>
-                                <p id="visibility" class="info-value">-- mi</p>
-                            </div>
-                        </div>
-                    </div>
-
                     <!-- Additional Hazards -->
                     <div class="info-card">
-                        <h5>Additional Hazards</h5>
+                        <h5>Hazards</h5>
                         <div class="row">
                             <div class="col-6">
-                                <p class="info-label">Hail Size</p>
-                                <p id="hail-size" class="info-value">-- in</p>
+                                <p class="info-label">Precipitation</p>
+                                <p id="precipitation" class="info-value">-- in</p>
                             </div>
                             <div class="col-6">
                                 <p class="info-label">Lightning</p>
                                 <p id="lightning-status" class="info-value">--</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Arrival Information -->
-                    <div class="info-card">
-                        <h5>Arrival Information</h5>
-                        <div class="row">
-                            <div class="col-6">
-                                <p class="info-label">Distance</p>
-                                <p id="storm-distance" class="info-value">-- mi</p>
-                            </div>
-                            <div class="col-6">
-                                <p class="info-label">ETA</p>
-                                <p id="arrival-time" class="info-value">--:--</p>
                             </div>
                         </div>
                     </div>
@@ -658,13 +648,22 @@
         // Function to update storm data
         async function updateStormData(latitude, longitude) {
             try {
-                // Show loading indicator
-                const stormInfo = document.getElementById('storm-info');
-                const loadingIndicator = document.getElementById('storm-loading-indicator');
-                const errorMessage = document.getElementById('storm-error-message');
+                // Show loading indicator for weather data
+                const weatherInfo = document.getElementById('weather-info');
+                const weatherLoadingIndicator = document.getElementById('weather-loading-indicator');
+                const weatherErrorMessage = document.getElementById('weather-error-message');
 
-                if (loadingIndicator) loadingIndicator.style.display = 'block';
-                if (errorMessage) errorMessage.classList.add('d-none');
+                if (weatherLoadingIndicator) weatherLoadingIndicator.style.display = 'block';
+                if (weatherErrorMessage) weatherErrorMessage.classList.add('d-none');
+                if (weatherInfo) weatherInfo.classList.add('updating');
+
+                // Show loading indicator for storm info
+                const stormInfo = document.getElementById('storm-info');
+                const stormLoadingIndicator = document.getElementById('storm-loading-indicator');
+                const stormErrorMessage = document.getElementById('storm-error-message');
+
+                if (stormLoadingIndicator) stormLoadingIndicator.style.display = 'block';
+                if (stormErrorMessage) stormErrorMessage.classList.add('d-none');
                 if (stormInfo) stormInfo.classList.add('updating');
 
                 // Fetch storm data from the API
@@ -675,68 +674,55 @@
                 const data = await response.json();
                 console.log("Storm data:", data);
 
-                // Update UI with storm data here if needed
-                // Make sure to check if properties exist before accessing them
-                if (data && data.currentConditions) {
-                    // Update storm data UI
-                    console.log("Current conditions:", data.currentConditions);
-
-                    // Only update UI elements if the data exists
-                    if (data.currentConditions.temperature !== undefined) {
-                        document.getElementById('temperature').textContent = `${data.currentConditions.temperature}°F`;
+                if (data) {
+                    // Update weather data card
+                    if (data.temperature !== undefined) {
+                        document.getElementById('temperature').textContent = `${data.temperature}°F`;
                     }
 
-                    if (data.currentConditions.windSpeed !== undefined) {
-                        document.getElementById('wind-speed').textContent = `${data.currentConditions.windSpeed} mph`;
+                    if (data.windSpeed !== undefined) {
+                        document.getElementById('wind-speed').textContent = `${data.windSpeed} mph`;
                     }
 
-                    if (data.currentConditions.windDirection !== undefined) {
-                        document.getElementById('wind-direction').textContent = `${data.currentConditions.windDirection}°`;
+                    if (data.stationName) {
+                        document.getElementById('station-name').textContent = data.stationName;
+                        document.getElementById('station-distance').textContent = `Distance: ${data.distance.toFixed(1)} km`;
                     }
 
-                    if (data.currentConditions.description) {
-                        document.getElementById('storm-description').textContent = data.currentConditions.description;
+                    if (data.timestamp) {
+                        document.getElementById('last-updated').textContent = new Date(data.timestamp).toLocaleString();
+                    } else {
+                        document.getElementById('last-updated').textContent = new Date().toLocaleString();
                     }
-                }
 
-                // Only update arrival time if it exists
-                if (data && data.arrival && data.arrival.time) {
-                    document.getElementById('arrival-time').textContent = data.arrival.time;
-                }
+                    document.getElementById('wind-direction').textContent = 'N/A';
 
-                // Only update intensity if it exists
-                if (data && data.intensity !== undefined) {
-                    document.getElementById('storm-intensity').style.width = `${data.intensity}%`;
-                }
+                    // Update storm info card (if we have extended data)
+                    if (data.currentConditions) {
+                        // Set storm type
+                        document.getElementById('storm-type').textContent = data.currentConditions.stormType || 'None';
+                        document.getElementById('storm-description').textContent = data.currentConditions.stormDescription || 'No storm activity';
 
-                // Only update movement data if it exists
-                if (data && data.movement && data.movement.speed !== undefined) {
-                    document.getElementById('storm-speed').textContent = `${data.movement.speed} mph`;
-                }
+                        // Set precipitation
+                        document.getElementById('precipitation').textContent = data.currentConditions.precipitation ?
+                            `${data.currentConditions.precipitation} in` : 'None';
 
-                // Only update wind data if it exists
-                if (data && data.wind && data.wind.gust !== undefined) {
-                    document.getElementById('wind-gust').textContent = `${data.wind.gust} mph`;
-                }
-
-                // Only update precipitation data if it exists
-                if (data && data.precipitation && data.precipitation.rate !== undefined) {
-                    document.getElementById('precipitation-rate').textContent = `${data.precipitation.rate} in/hr`;
-                }
-
-                // Only update hazards data if it exists
-                if (data && data.hazards && data.hazards.lightning) {
-                    document.getElementById('lightning-status').textContent = data.hazards.lightning;
-                }
-
-                // Only update arrival distance if it exists
-                if (data && data.arrival && data.arrival.distance !== undefined) {
-                    document.getElementById('storm-distance').textContent = `${data.arrival.distance} mi`;
-                }
-
-                // Update storm types if they exist
-                if (data && data.stormTypes && data.stormTypes.length > 0) {
-                    document.getElementById('storm-type').textContent = data.stormTypes.join(', ');
+                        // Set storm intensity
+                        if (data.currentConditions.stormIntensity !== undefined) {
+                            document.getElementById('storm-intensity').style.width = `${data.currentConditions.stormIntensity * 20}%`;
+                        } else {
+                            document.getElementById('storm-intensity').style.width = '0%';
+                        }
+                    } else {
+                        // Default values when no storm data
+                        document.getElementById('storm-type').textContent = 'None';
+                        document.getElementById('storm-description').textContent = 'No storm activity';
+                        document.getElementById('precipitation').textContent = 'None';
+                        document.getElementById('storm-intensity').style.width = '0%';
+                        document.getElementById('storm-speed').textContent = 'N/A';
+                        document.getElementById('storm-direction').textContent = 'N/A';
+                        document.getElementById('lightning-status').textContent = 'None';
+                    }
                 }
 
                 // Update alerts if they exist
@@ -754,12 +740,12 @@
                             const alertElement = document.createElement('div');
                             alertElement.className = 'alert alert-warning mb-2';
                             alertElement.innerHTML = `
-                                        <h6>${alert.event}</h6>
-                                        <p class="mb-1"><strong>Severity:</strong> ${alert.severity}</p>
-                                        <p class="mb-1"><strong>Urgency:</strong> ${alert.urgency}</p>
-                                        <p class="mb-1">${alert.description}</p>
-                                        <small>Valid: ${new Date(alert.startTime).toLocaleString()} - ${new Date(alert.endTime).toLocaleString()}</small>
-                                    `;
+                                    <h6>${alert.event}</h6>
+                                    <p class="mb-1"><strong>Severity:</strong> ${alert.severity}</p>
+                                    <p class="mb-1"><strong>Urgency:</strong> ${alert.urgency}</p>
+                                    <p class="mb-1">${alert.description}</p>
+                                    <small>Valid: ${new Date(alert.startTime).toLocaleString()} - ${new Date(alert.endTime).toLocaleString()}</small>
+                                `;
                             alertsList.appendChild(alertElement);
                         });
                     }
@@ -771,22 +757,34 @@
                     if (alertText) alertText.textContent = 'No Active Alerts';
                 }
 
-                // Hide loading indicator
-                if (loadingIndicator) loadingIndicator.style.display = 'none';
-                stormInfo.classList.remove('updating');
+                // Hide loading indicators
+                if (weatherLoadingIndicator) weatherLoadingIndicator.style.display = 'none';
+                if (weatherInfo) weatherInfo.classList.remove('updating');
 
-                // Update storm information
-                document.getElementById('alert-text').textContent = data.alertLevel;
-                document.getElementById('storm-type').textContent = data.stormType;
+                if (stormLoadingIndicator) stormLoadingIndicator.style.display = 'none';
+                if (stormInfo) stormInfo.classList.remove('updating');
+
             } catch (error) {
-                console.error("Error fetching storm data:", error);
-                const errorMessage = document.getElementById('storm-error-message');
-                if (errorMessage) {
-                    errorMessage.classList.remove('d-none');
-                    errorMessage.textContent = `Error loading storm data: ${error.message}`;
+                console.error("Error fetching weather/storm data:", error);
+                // Show error for weather data
+                const weatherErrorMessage = document.getElementById('weather-error-message');
+                if (weatherErrorMessage) {
+                    weatherErrorMessage.classList.remove('d-none');
+                    weatherErrorMessage.textContent = `Error loading weather data: ${error.message}`;
                 }
-                const loadingIndicator = document.getElementById('storm-loading-indicator');
-                if (loadingIndicator) loadingIndicator.style.display = 'none';
+                const weatherLoadingIndicator = document.getElementById('weather-loading-indicator');
+                if (weatherLoadingIndicator) weatherLoadingIndicator.style.display = 'none';
+                const weatherInfo = document.getElementById('weather-info');
+                if (weatherInfo) weatherInfo.classList.remove('updating');
+
+                // Show error for storm data
+                const stormErrorMessage = document.getElementById('storm-error-message');
+                if (stormErrorMessage) {
+                    stormErrorMessage.classList.remove('d-none');
+                    stormErrorMessage.textContent = `Error loading storm data: ${error.message}`;
+                }
+                const stormLoadingIndicator = document.getElementById('storm-loading-indicator');
+                if (stormLoadingIndicator) stormLoadingIndicator.style.display = 'none';
                 const stormInfo = document.getElementById('storm-info');
                 if (stormInfo) stormInfo.classList.remove('updating');
             }
