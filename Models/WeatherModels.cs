@@ -40,6 +40,7 @@ namespace StormSafe.Models
             CurrentConditions = new CurrentConditions();
             Forecast = new List<ForecastPeriod>();
             PredictedPath = new List<Location>();
+            Alerts = new List<WeatherAlert>();
         }
 
         public Location CurrentLocation { get; set; }
@@ -47,6 +48,7 @@ namespace StormSafe.Models
         public CurrentConditions CurrentConditions { get; set; }
         public List<ForecastPeriod> Forecast { get; set; }
         public List<Location> PredictedPath { get; set; }
+        public List<WeatherAlert> Alerts { get; set; }
     }
 
     public class Location
@@ -95,5 +97,23 @@ namespace StormSafe.Models
         }
 
         public string Url { get; set; }
+    }
+
+    public class WeatherAlert
+    {
+        public WeatherAlert()
+        {
+            Event = string.Empty;
+            Severity = string.Empty;
+            Urgency = string.Empty;
+            Description = string.Empty;
+        }
+
+        public string Event { get; set; }
+        public string Severity { get; set; }
+        public string Urgency { get; set; }
+        public string Description { get; set; }
+        public DateTime StartTime { get; set; }
+        public DateTime EndTime { get; set; }
     }
 }

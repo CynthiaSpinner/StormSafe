@@ -4,6 +4,7 @@ using StormSafe.Models;
 using Microsoft.Extensions.Logging;
 using System.ComponentModel.DataAnnotations;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Hosting;
 
 namespace StormSafe.Controllers
 {
@@ -57,6 +58,19 @@ namespace StormSafe.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error fetching storm data for coordinates: lat={Latitude}, lon={Longitude}", latitude, longitude);
+
+                // In development, return detailed error information
+                if (HttpContext.RequestServices.GetService<IWebHostEnvironment>()?.IsDevelopment() ?? false)
+                {
+                    return StatusCode(500, new
+                    {
+                        error = "An unexpected error occurred while fetching storm data",
+                        details = ex.ToString(),
+                        innerException = ex.InnerException?.ToString(),
+                        stackTrace = ex.StackTrace
+                    });
+                }
+
                 return StatusCode(500, new { error = "An unexpected error occurred while fetching storm data" });
             }
         }

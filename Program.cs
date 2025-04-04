@@ -1,18 +1,31 @@
 using StormSafe.Services;
+using System.Net.Http.Headers;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
-builder.Services.AddScoped<IWeatherService, WeatherService>();
-builder.Services.AddMemoryCache();
 
-// Configure HTTP client with custom User-Agent for NOAA API
+// Configure HTTP client for NOAA API
 builder.Services.AddHttpClient("NOAA", client =>
 {
-    client.DefaultRequestHeaders.Add("User-Agent", "StormSafe/1.0 (https://github.com/yourusername/StormSafe; your.email@example.com)");
+    client.BaseAddress = new Uri("https://api.weather.gov/");
+    client.DefaultRequestHeaders.Add("User-Agent", "StormSafe/1.0");
+    client.DefaultRequestHeaders.Accept.Clear();
+    client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/geo+json"));
     client.Timeout = TimeSpan.FromSeconds(30);
 });
+
+// Register WeatherService with the NOAA HttpClient
+builder.Services.AddScoped<IWeatherService>(sp =>
+{
+    var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
+    var logger = sp.GetRequiredService<ILogger<WeatherService>>();
+    var httpClient = httpClientFactory.CreateClient("NOAA");
+    return new WeatherService(httpClient, logger);
+});
+
+builder.Services.AddMemoryCache();
 
 // Add CORS
 builder.Services.AddCors(options =>

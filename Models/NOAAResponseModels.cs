@@ -81,33 +81,138 @@ namespace StormSafe.Models
 
         [JsonPropertyName("observationStations")]
         public string? ObservationStations { get; set; }
+
+        [JsonPropertyName("alerts")]
+        public string? Alerts { get; set; }
+    }
+
+    public class NOAAGeometry
+    {
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("coordinates")]
+        public List<double>? Coordinates { get; set; }
     }
 
     public class NOAAConditions
     {
+        [JsonPropertyName("@context")]
+        public List<object>? Context { get; set; }
+
+        [JsonPropertyName("id")]
+        public string? Id { get; set; }
+
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("geometry")]
+        public NOAAGeometry? Geometry { get; set; }
+
         [JsonPropertyName("properties")]
-        public NOAAConditionsProperties Properties { get; set; } = new();
+        public NOAAConditionsProperties? Properties { get; set; }
     }
 
     public class NOAAConditionsProperties
     {
-        [JsonPropertyName("temperature")]
-        public NOAAValue? Temperature { get; set; }
+        [JsonPropertyName("@id")]
+        public string? Id { get; set; }
 
-        [JsonPropertyName("windSpeed")]
-        public NOAADirectionValue? WindSpeed { get; set; }
+        [JsonPropertyName("@type")]
+        public string? Type { get; set; }
 
-        [JsonPropertyName("windDirection")]
-        public NOAADirectionValue? WindDirection { get; set; }
+        [JsonPropertyName("elevation")]
+        public NOAAValue? Elevation { get; set; }
 
-        [JsonPropertyName("precipitation")]
-        public NOAADirectionValue? Precipitation { get; set; }
+        [JsonPropertyName("station")]
+        public string? Station { get; set; }
 
-        [JsonPropertyName("barometricPressure")]
-        public NOAAValue? BarometricPressure { get; set; }
+        [JsonPropertyName("timestamp")]
+        public string? Timestamp { get; set; }
+
+        [JsonPropertyName("rawMessage")]
+        public string? RawMessage { get; set; }
 
         [JsonPropertyName("textDescription")]
         public string? TextDescription { get; set; }
+
+        [JsonPropertyName("icon")]
+        public string? Icon { get; set; }
+
+        [JsonPropertyName("presentWeather")]
+        public List<object>? PresentWeather { get; set; }
+
+        [JsonPropertyName("temperature")]
+        public NOAATemperature? Temperature { get; set; }
+
+        [JsonPropertyName("dewpoint")]
+        public NOAATemperature? Dewpoint { get; set; }
+
+        [JsonPropertyName("windDirection")]
+        public NOAATemperature? WindDirection { get; set; }
+
+        [JsonPropertyName("windSpeed")]
+        public NOAATemperature? WindSpeed { get; set; }
+
+        [JsonPropertyName("windGust")]
+        public NOAATemperature? WindGust { get; set; }
+
+        [JsonPropertyName("barometricPressure")]
+        public NOAATemperature? BarometricPressure { get; set; }
+
+        [JsonPropertyName("seaLevelPressure")]
+        public NOAATemperature? SeaLevelPressure { get; set; }
+
+        [JsonPropertyName("visibility")]
+        public NOAATemperature? Visibility { get; set; }
+
+        [JsonPropertyName("maxTemperatureLast24Hours")]
+        public NOAATemperature? MaxTemperatureLast24Hours { get; set; }
+
+        [JsonPropertyName("minTemperatureLast24Hours")]
+        public NOAATemperature? MinTemperatureLast24Hours { get; set; }
+
+        [JsonPropertyName("precipitationLastHour")]
+        public NOAATemperature? PrecipitationLastHour { get; set; }
+
+        [JsonPropertyName("precipitationLast3Hours")]
+        public NOAATemperature? PrecipitationLast3Hours { get; set; }
+
+        [JsonPropertyName("precipitationLast6Hours")]
+        public NOAATemperature? PrecipitationLast6Hours { get; set; }
+
+        [JsonPropertyName("relativeHumidity")]
+        public NOAATemperature? RelativeHumidity { get; set; }
+
+        [JsonPropertyName("windChill")]
+        public NOAATemperature? WindChill { get; set; }
+
+        [JsonPropertyName("heatIndex")]
+        public NOAATemperature? HeatIndex { get; set; }
+
+        [JsonPropertyName("cloudLayers")]
+        public List<NOAACloudLayer>? CloudLayers { get; set; }
+    }
+
+    public class NOAATemperature
+    {
+        [JsonPropertyName("unitCode")]
+        public string? UnitCode { get; set; }
+
+        [JsonPropertyName("value")]
+        public double? Value { get; set; }
+
+        [JsonPropertyName("qualityControl")]
+        public string? QualityControl { get; set; }
+    }
+
+    public class NOAACloudLayer
+    {
+        [JsonPropertyName("base")]
+        public NOAATemperature? Base { get; set; }
+
+        [JsonPropertyName("amount")]
+        public string? Amount { get; set; }
     }
 
     public class NOAADirectionValue
@@ -165,5 +270,56 @@ namespace StormSafe.Models
 
         [JsonPropertyName("detailedForecast")]
         public string? DetailedForecast { get; set; }
+    }
+
+    public class NOAAAlertsResponse
+    {
+        [JsonPropertyName("features")]
+        public List<NOAAAlertFeature>? Features { get; set; }
+    }
+
+    public class NOAAAlertFeature
+    {
+        [JsonPropertyName("properties")]
+        public NOAAAlertProperties? Properties { get; set; }
+    }
+
+    public class NOAAAlertProperties
+    {
+        [JsonPropertyName("event")]
+        public string? Event { get; set; }
+
+        [JsonPropertyName("severity")]
+        public string? Severity { get; set; }
+
+        [JsonPropertyName("urgency")]
+        public string? Urgency { get; set; }
+
+        [JsonPropertyName("description")]
+        public string? Description { get; set; }
+
+        [JsonPropertyName("effective")]
+        public string? Effective { get; set; }
+
+        [JsonPropertyName("expires")]
+        public string? Expires { get; set; }
+    }
+
+    public class NominatimLocation
+    {
+        [JsonPropertyName("lat")]
+        public double Lat { get; set; }
+
+        [JsonPropertyName("lon")]
+        public double Lon { get; set; }
+
+        [JsonPropertyName("display_name")]
+        public string? DisplayName { get; set; }
+
+        [JsonPropertyName("type")]
+        public string? Type { get; set; }
+
+        [JsonPropertyName("importance")]
+        public double Importance { get; set; }
     }
 }
