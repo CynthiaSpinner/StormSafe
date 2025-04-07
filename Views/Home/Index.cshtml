@@ -653,18 +653,26 @@
                 const weatherLoadingIndicator = document.getElementById('weather-loading-indicator');
                 const weatherErrorMessage = document.getElementById('weather-error-message');
 
-                if (weatherLoadingIndicator) weatherLoadingIndicator.style.display = 'block';
+                // Set up loading timeout
+                const loadingTimeout = setTimeout(() => {
+                    if (weatherLoadingIndicator) weatherLoadingIndicator.style.display = 'block';
+                    if (weatherInfo) weatherInfo.classList.add('updating');
+                }, 1000); // Show loading after 1 second
+
                 if (weatherErrorMessage) weatherErrorMessage.classList.add('d-none');
-                if (weatherInfo) weatherInfo.classList.add('updating');
 
                 // Show loading indicator for storm info
                 const stormInfo = document.getElementById('storm-info');
                 const stormLoadingIndicator = document.getElementById('storm-loading-indicator');
                 const stormErrorMessage = document.getElementById('storm-error-message');
 
-                if (stormLoadingIndicator) stormLoadingIndicator.style.display = 'block';
+                // Set up loading timeout for storm data
+                const stormLoadingTimeout = setTimeout(() => {
+                    if (stormLoadingIndicator) stormLoadingIndicator.style.display = 'block';
+                    if (stormInfo) stormInfo.classList.add('updating');
+                }, 1000); // Show loading after 1 second
+
                 if (stormErrorMessage) stormErrorMessage.classList.add('d-none');
-                if (stormInfo) stormInfo.classList.add('updating');
 
                 // Fetch storm data from the API
                 const response = await fetch(`/api/Weather/storm-data?latitude=${latitude}&longitude=${longitude}`);
@@ -673,6 +681,10 @@
                 }
                 const data = await response.json();
                 console.log("Storm data:", data);
+
+                // Clear loading timeouts since we got the data
+                clearTimeout(loadingTimeout);
+                clearTimeout(stormLoadingTimeout);
 
                 if (data) {
                     // Update weather data card
@@ -740,12 +752,12 @@
                             const alertElement = document.createElement('div');
                             alertElement.className = 'alert alert-warning mb-2';
                             alertElement.innerHTML = `
-                                    <h6>${alert.event}</h6>
-                                    <p class="mb-1"><strong>Severity:</strong> ${alert.severity}</p>
-                                    <p class="mb-1"><strong>Urgency:</strong> ${alert.urgency}</p>
-                                    <p class="mb-1">${alert.description}</p>
-                                    <small>Valid: ${new Date(alert.startTime).toLocaleString()} - ${new Date(alert.endTime).toLocaleString()}</small>
-                                `;
+                                            <h6>${alert.event}</h6>
+                                            <p class="mb-1"><strong>Severity:</strong> ${alert.severity}</p>
+                                            <p class="mb-1"><strong>Urgency:</strong> ${alert.urgency}</p>
+                                            <p class="mb-1">${alert.description}</p>
+                                            <small>Valid: ${new Date(alert.startTime).toLocaleString()} - ${new Date(alert.endTime).toLocaleString()}</small>
+                                        `;
                             alertsList.appendChild(alertElement);
                         });
                     }
@@ -760,7 +772,6 @@
                 // Hide loading indicators
                 if (weatherLoadingIndicator) weatherLoadingIndicator.style.display = 'none';
                 if (weatherInfo) weatherInfo.classList.remove('updating');
-
                 if (stormLoadingIndicator) stormLoadingIndicator.style.display = 'none';
                 if (stormInfo) stormInfo.classList.remove('updating');
 
