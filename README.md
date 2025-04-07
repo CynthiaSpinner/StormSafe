@@ -1,6 +1,6 @@
 # StormSafe
 
-StormSafe is a real-time storm tracking and weather monitoring application that provides users with up-to-date information about weather conditions, storm movements, and potential hazards in their area. The application continuously updates weather data to provide precise storm tracking and accurate arrival time predictions.
+StormSafe is a real-time storm tracking and weather monitoring application that provides users with up-to-date information about weather conditions, storm movements, and potential hazards in their area. The application continuously updates weather data to provide precise storm tracking and accurate arrival time predictions. It features real-time location tracking to provide personalized weather information and storm alerts based on the user's exact position.
 
 ## Features
 
@@ -12,6 +12,7 @@ StormSafe is a real-time storm tracking and weather monitoring application that 
 - **NEXRAD Radar**: View real-time radar data from the National Weather Service
 - **Storm Arrival Predictions**: Get accurate estimates of when storms will reach your location
 - **Continuous Updates**: Data refreshes automatically to provide the most current storm information
+- **Location Tracking**: Real-time monitoring of user location for personalized weather updates
 
 ## Future Features
 
@@ -23,19 +24,20 @@ StormSafe is a real-time storm tracking and weather monitoring application that 
 
 ## Technologies Used
 
-- **Backend**: ASP.NET Core
+- **Backend**: ASP.NET MVC using C#
 - **Frontend**: HTML, CSS, JavaScript, Leaflet.js
 - **APIs**:
   - NOAA Weather API for real-time weather data
   - Iowa Environmental Mesonet for NEXRAD radar data
   - OpenStreetMap for base map data
+  - Browser Geolocation API for user location tracking
 
 ## Getting Started
 
 ### Prerequisites
 
 - .NET 6.0 SDK or later
-- A modern web browser
+- A modern web browser with location services enabled
 - Internet connection for API access
 
 ### Installation
@@ -78,6 +80,7 @@ StormSafe is a real-time storm tracking and weather monitoring application that 
 
    - Click "Use My Location" to get weather data for your current location
    - View temperature, wind speed, and other weather conditions
+   - Allow location access for personalized weather updates
 
 2. **Track Storms**:
 
@@ -85,11 +88,13 @@ StormSafe is a real-time storm tracking and weather monitoring application that 
    - Click "Show NEXRAD" to view radar data
    - Adjust radar opacity and product type using the controls
    - Monitor storm movement and predicted paths
+   - Track your location relative to approaching storms
 
 3. **Monitor Alerts**:
    - View active weather alerts in your area
    - Get detailed information about storm types and intensities
    - Receive updates about storm arrival times
+   - Get location-specific storm warnings
 
 ## Contributing
 
