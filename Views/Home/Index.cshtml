@@ -500,6 +500,26 @@
                                             <p id="lightning-status" class="info-value">--</p>
                                         </div>
                                     </div>
+                                    <div class="row mt-2">
+                                        <div class="col-6">
+                                            <p class="info-label">Barometric Pressure</p>
+                                            <p id="barometric-pressure" class="info-value">-- inHg</p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p class="info-label">Sea Level Pressure</p>
+                                            <p id="sea-level-pressure" class="info-value">-- inHg</p>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-6">
+                                            <p class="info-label">Visibility</p>
+                                            <p id="storm-visibility" class="info-value">-- miles</p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p class="info-label">Wind Gust</p>
+                                            <p id="wind-gust" class="info-value">-- mph</p>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <!-- Storm Intensity -->
@@ -784,6 +804,30 @@
                                     document.getElementById('precipitation').textContent = data.currentConditions.precipitation ?
                                         `${data.currentConditions.precipitation} in` : 'None';
 
+                                    // Set barometric pressure (convert from hPa to inHg)
+                                    if (data.currentConditions.pressure !== undefined) {
+                                        const pressureInHg = data.currentConditions.pressure * 0.02953;
+                                        document.getElementById('barometric-pressure').textContent = `${pressureInHg.toFixed(2)} inHg`;
+                                    }
+
+                                    // Set sea level pressure (convert from hPa to inHg)
+                                    if (data.currentConditions.seaLevelPressure !== undefined) {
+                                        const seaLevelPressureInHg = data.currentConditions.seaLevelPressure * 0.02953;
+                                        document.getElementById('sea-level-pressure').textContent = `${seaLevelPressureInHg.toFixed(2)} inHg`;
+                                    }
+
+                                    // Set visibility (convert from meters to miles)
+                                    if (data.currentConditions.visibility !== undefined) {
+                                        const visibilityMiles = data.currentConditions.visibility * 0.000621371;
+                                        document.getElementById('storm-visibility').textContent = `${visibilityMiles.toFixed(1)} miles`;
+                                    }
+
+                                    // Set wind gust (convert from km/h to mph)
+                                    if (data.currentConditions.windGust !== undefined) {
+                                        const windGustMph = data.currentConditions.windGust * 0.621371;
+                                        document.getElementById('wind-gust').textContent = `${windGustMph.toFixed(1)} mph`;
+                                    }
+
                                     // Set storm intensity
                                     if (data.currentConditions.stormIntensity !== undefined) {
                                         document.getElementById('storm-intensity').style.width = `${data.currentConditions.stormIntensity * 20}%`;
@@ -795,6 +839,10 @@
                                     document.getElementById('storm-type').textContent = 'None';
                                     document.getElementById('storm-description').textContent = 'No storm activity';
                                     document.getElementById('precipitation').textContent = 'None';
+                                    document.getElementById('barometric-pressure').textContent = '-- inHg';
+                                    document.getElementById('sea-level-pressure').textContent = '-- inHg';
+                                    document.getElementById('storm-visibility').textContent = '-- miles';
+                                    document.getElementById('wind-gust').textContent = '-- mph';
                                     document.getElementById('storm-intensity').style.width = '0%';
                                     document.getElementById('storm-speed').textContent = 'N/A';
                                     document.getElementById('storm-direction').textContent = 'N/A';
