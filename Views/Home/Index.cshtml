@@ -401,6 +401,32 @@
                                             <p id="last-updated" class="info-value">--</p>
                                         </div>
                                     </div>
+                                    <div class="row mt-2">
+                                        <div class="col-6">
+                                            <p class="info-label">Dew Point</p>
+                                            <p id="dew-point" class="info-value">--°F</p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p class="info-label">Wind Chill</p>
+                                            <p id="wind-chill" class="info-value">--°F</p>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-6">
+                                            <p class="info-label">Heat Index</p>
+                                            <p id="heat-index" class="info-value">--°F</p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p class="info-label">Relative Humidity</p>
+                                            <p id="humidity" class="info-value">--%</p>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-6">
+                                            <p class="info-label">Visibility</p>
+                                            <p id="visibility" class="info-value">-- miles</p>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -697,7 +723,7 @@
                                 // Update weather data card
                                 if (data.temperature !== undefined) {
                                     // Convert Celsius to Fahrenheit: (C × 9/5) + 32
-                                    const fahrenheit = (data.temperature * 9 / 5) + 32;
+                                    const fahrenheit = (data.temperature * 9/5) + 32;
                                     document.getElementById('temperature').textContent = `${fahrenheit.toFixed(1)}°F`;
                                 }
 
@@ -710,6 +736,31 @@
                                 if (data.windDirection !== undefined) {
                                     const compassDirection = getWindDirection(data.windDirection);
                                     document.getElementById('wind-direction').textContent = `${compassDirection} (${data.windDirection}°)`;
+                                }
+
+                                if (data.dewpoint !== undefined) {
+                                    const dewpointF = (data.dewpoint * 9/5) + 32;
+                                    document.getElementById('dew-point').textContent = `${dewpointF.toFixed(1)}°F`;
+                                }
+
+                                if (data.windChill !== undefined) {
+                                    const windChillF = (data.windChill * 9/5) + 32;
+                                    document.getElementById('wind-chill').textContent = `${windChillF.toFixed(1)}°F`;
+                                }
+
+                                if (data.heatIndex !== undefined) {
+                                    const heatIndexF = (data.heatIndex * 9/5) + 32;
+                                    document.getElementById('heat-index').textContent = `${heatIndexF.toFixed(1)}°F`;
+                                }
+
+                                if (data.relativeHumidity !== undefined) {
+                                    document.getElementById('humidity').textContent = `${data.relativeHumidity.toFixed(0)}%`;
+                                }
+
+                                if (data.visibility !== undefined) {
+                                    // Convert meters to miles: m * 0.000621371
+                                    const visibilityMiles = data.visibility * 0.000621371;
+                                    document.getElementById('visibility').textContent = `${visibilityMiles.toFixed(1)} miles`;
                                 }
 
                                 if (data.stationName) {
