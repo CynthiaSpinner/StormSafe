@@ -131,7 +131,7 @@ namespace StormSafe.Services
                                 {
                                     Temperature = temperature,
                                     WindSpeed = windSpeed,
-                                    WindDirection = double.Parse(windDirection.ToString()),
+                                    WindDirection = ConvertWindDirectionToDegrees("N"),
                                     Dewpoint = dewpoint,
                                     WindChill = windChill,
                                     HeatIndex = heatIndex,
@@ -171,7 +171,7 @@ namespace StormSafe.Services
                                 {
                                     Temperature = temperature,
                                     WindSpeed = windSpeed,
-                                    WindDirection = double.Parse(windDirection.ToString()),
+                                    WindDirection = ConvertWindDirectionToDegrees("N"),
                                     Dewpoint = dewpoint,
                                     WindChill = windChill,
                                     HeatIndex = heatIndex,
@@ -357,7 +357,7 @@ namespace StormSafe.Services
                 var distanceDegrees = degreesPerHour * hours;
 
                 // Calculate new position
-                var windDirection = ConvertWindDirectionToAngle(period.WindDirection ?? "N");
+                var windDirection = ConvertWindDirectionToDegrees(period.WindDirection ?? "N");
                 var newLat = latitude + (distanceDegrees * Math.Cos(ToRadians(windDirection)));
                 var newLon = longitude + (distanceDegrees * Math.Sin(ToRadians(windDirection)));
 
@@ -371,7 +371,7 @@ namespace StormSafe.Services
             return path;
         }
 
-        private double ConvertWindDirectionToAngle(string direction)
+        private double ConvertWindDirectionToDegrees(string direction)
         {
             return direction switch
             {
@@ -391,7 +391,7 @@ namespace StormSafe.Services
                 "WNW" => 292.5,
                 "NW" => 315,
                 "NNW" => 337.5,
-                _ => 0 // Default to North if unknown
+                _ => 0
             };
         }
 
@@ -568,7 +568,7 @@ namespace StormSafe.Services
                 {
                     Temperature = 0,
                     WindSpeed = 0,
-                    WindDirection = "N",
+                    WindDirection = ConvertWindDirectionToDegrees("N"),
                     Dewpoint = 0,
                     WindChill = 0,
                     HeatIndex = 0,
