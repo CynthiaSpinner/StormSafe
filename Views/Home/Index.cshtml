@@ -702,7 +702,9 @@
                                 }
 
                                 if (data.windSpeed !== undefined) {
-                                    document.getElementById('wind-speed').textContent = `${data.windSpeed} mph`;
+                                    // Convert km/h to mph: km/h * 0.621371
+                                    const mph = data.windSpeed * 0.621371;
+                                    document.getElementById('wind-speed').textContent = `${mph.toFixed(1)} mph`;
                                 }
 
                                 if (data.windDirection !== undefined) {
