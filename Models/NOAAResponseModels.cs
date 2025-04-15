@@ -367,6 +367,9 @@ namespace StormSafe.Models
         [JsonPropertyName("dewpoint")]
         public NOAAValue? Dewpoint { get; set; }
 
+        [JsonPropertyName("heatIndex")]
+        public NOAAValue? HeatIndex { get; set; }
+
         [JsonPropertyName("timestamp")]
         public DateTime Timestamp { get; set; }
     }

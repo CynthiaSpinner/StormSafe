@@ -10,6 +10,7 @@ namespace StormSafe.Models
         public double WindSpeed { get; set; }
         public double WindDirection { get; set; }
         public double Dewpoint { get; set; }
+        public double HeatIndex { get; set; }
         public string StationId { get; set; } = string.Empty;
         public string StationName { get; set; } = string.Empty;
         public double Distance { get; set; }
@@ -28,6 +29,7 @@ namespace StormSafe.Models
         public double WindSpeed { get; set; }
         public string WindDirection { get; set; } = "N";
         public double Dewpoint { get; set; }
+        public double HeatIndex { get; set; }
         public double Precipitation { get; set; }
         public double Pressure { get; set; }
         public double Visibility { get; set; }
