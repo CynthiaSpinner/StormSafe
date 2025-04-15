@@ -117,691 +117,693 @@
         }
 
         @@keyframes spin {
-            0% {
-                transform: rotate(0deg);
-            }
-
-            100% {
-                transform: rotate(360deg);
-            }
-        }
-
-        .user-location-marker {
-            width: 20px;
-            height: 20px;
-            background-color: #4CAF50;
-            border: 2px solid white;
-            border-radius: 50%;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-        }
-
-        .storm-location-marker {
-            width: 24px;
-            height: 24px;
-            background-color: #ff4444;
-            border: 2px solid white;
-            border-radius: 50%;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            animation: pulse 2s infinite;
-        }
-
-        @@keyframes pulse {
-            0% {
-                transform: scale(1);
-                opacity: 1;
-            }
-
-            50% {
-                transform: scale(1.2);
-                opacity: 0.7;
-            }
-
-            100% {
-                transform: scale(1);
-                opacity: 1;
-            }
-        }
-
-        .storm-info {
-            transition: opacity 0.3s ease;
-        }
-
-        .storm-info.updating {
-            opacity: 0.7;
-        }
-
-        .alert-level {
-            padding: 0.5rem 1rem;
-            border-radius: 4px;
-            font-weight: bold;
-            text-align: center;
-            margin-bottom: 1rem;
-        }
-
-        .alert-warning {
-            background-color: #fff3cd;
-            color: #856404;
-            border: 1px solid #ffeeba;
-        }
-
-        .alert-danger {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
-        .alert-info {
-            background-color: #d1ecf1;
-            color: #0c5460;
-            border: 1px solid #bee5eb;
-        }
-
-        .info-card {
-            background: white;
-            border-radius: 8px;
-            padding: 1.5rem;
-            margin-bottom: 1rem;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .info-label {
-            font-weight: bold;
-            color: #666;
-            margin-bottom: 0.5rem;
-        }
-
-        .info-value {
-            font-size: 1.1rem;
-            color: #333;
-        }
-
-        .predicted-path {
-            stroke-dasharray: 5, 10;
-            animation: dash 30s linear infinite;
-        }
-
-        @@keyframes dash {
-            to {
-                stroke-dashoffset: -1000;
-            }
-        }
-
-        .leaflet-control-locate {
-            z-index: 1000 !important;
-            pointer-events: auto !important;
-            background: white !important;
-            padding: 5px !important;
-            border-radius: 4px !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
-            margin-top: 10px !important;
-            margin-left: 10px !important;
-            position: relative !important;
-        }
-
-        .leaflet-control-zoom {
-            z-index: 1000 !important;
-            margin-top: 10px !important;
-            margin-left: 10px !important;
-            position: relative !important;
-        }
-
-        .leaflet-control-radar {
-            z-index: 1000 !important;
-            margin-top: 10px !important;
-            margin-right: 10px !important;
-            position: relative !important;
-        }
-
-        .leaflet-control-container {
-            z-index: 1000 !important;
-            pointer-events: auto !important;
-        }
-
-        .leaflet-top,
-        .leaflet-bottom {
-            z-index: 1000 !important;
-        }
-
-        .leaflet-control {
-            z-index: 1000 !important;
-        }
-
-        .nexrad-overlay {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            z-index: 2;
-            pointer-events: none;
-            display: none;
-        }
-
-        .nexrad-controls {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            z-index: 1000;
-            background: white;
-            padding: 10px;
-            border-radius: 4px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
-            pointer-events: auto;
-            min-width: 200px;
-        }
-
-        .nexrad-controls .form-range {
-            width: 100%;
-        }
-    </style>
-}
-
-<div class="row">
-    <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
-                <h3 class="mb-0">Live Radar</h3>
-                <div class="d-flex gap-2">
-                    <button class="btn btn-light btn-sm" id="locate-button">
-                        <i class="fas fa-location-arrow"></i> Use My Location
-                    </button>
-                    <button class="btn btn-light btn-sm" id="nexrad-button">
-                        <i class="fas fa-radar"></i> Show NEXRAD
-                    </button>
-                </div>
-            </div>
-            <div class="card-body p-0">
-                <div class="map-container">
-                    <div id="map"></div>
-                    <div id="nexrad-container" class="nexrad-overlay">
-                        <div class="nexrad-controls">
-                            <div class="mb-2">
-                                <label for="nexrad-opacity" class="form-label">Opacity</label>
-                                <input type="range" class="form-range" id="nexrad-opacity" min="0" max="100" value="70">
-                            </div>
-                            <div class="mb-2">
-                                <label for="nexrad-product" class="form-label">Product</label>
-                                <select class="form-select" id="nexrad-product">
-                                    <option value="N0R">Base Reflectivity (N0R)</option>
-                                    <option value="N0S">Storm Relative Motion (N0S)</option>
-                                    <option value="N0V">Velocity (N0V)</option>
-                                    <option value="N0C">Composite Reflectivity (N0C)</option>
-                                    <option value="N0H">Hybrid Scan Reflectivity (N0H)</option>
-                                    <option value="bref_qcd">Base Reflectivity Quick Color Display</option>
-                                </select>
-                            </div>
-                            <div class="mb-2">
-                                <label for="nexrad-site" class="form-label">Radar Site</label>
-                                <select class="form-select" id="nexrad-site">
-                                    <option value="auto">Auto (Nearest)</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    <div id="loading-indicator" class="loading-indicator">
-                        <div class="spinner"></div>
-                        <span>Loading radar...</span>
-                    </div>
-                    <div id="error-message" class="error-message">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <span>Error loading radar image</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <div class="col-md-4">
-        <!-- Local Weather Data Card -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-primary text-white">
-                <h3 class="mb-0">Local Weather Data</h3>
-            </div>
-            <div class="card-body">
-                <div id="weather-info" class="storm-info">
-                    <!-- Loading Indicator -->
-                    <div id="weather-loading-indicator" class="text-center py-3">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <p class="mt-2">Loading weather data...</p>
-                    </div>
-
-                    <!-- Error Message -->
-                    <div id="weather-error-message" class="alert alert-danger d-none" role="alert">
-                        Error loading weather data. Please try again later.
-                    </div>
-
-                    <!-- Weather Station Info -->
-                    <div class="info-card">
-                        <h5>Weather Station</h5>
-                        <p id="station-name" class="info-value">--</p>
-                        <p id="station-distance" class="text-muted small">--</p>
-                    </div>
-
-                    <!-- Current Conditions -->
-                    <div class="info-card">
-                        <h5>Current Conditions</h5>
-                        <div class="row">
-                            <div class="col-6">
-                                <p class="info-label">Temperature</p>
-                                <p id="temperature" class="info-value">--°F</p>
-                            </div>
-                            <div class="col-6">
-                                <p class="info-label">Wind Speed</p>
-                                <p id="wind-speed" class="info-value">-- mph</p>
-                            </div>
-                        </div>
-                        <div class="row mt-2">
-                            <div class="col-6">
-                                <p class="info-label">Wind Direction</p>
-                                <p id="wind-direction" class="info-value">--°</p>
-                            </div>
-                            <div class="col-6">
-                                <p class="info-label">Last Updated</p>
-                                <p id="last-updated" class="info-value">--</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Storm Information Card -->
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
-                <h3 class="mb-0">Storm Information</h3>
-            </div>
-            <div class="card-body">
-                <div id="storm-info" class="storm-info">
-                    <!-- Loading Indicator -->
-                    <div id="storm-loading-indicator" class="text-center py-3">
-                        <div class="spinner-border text-primary" role="status">
-                            <span class="visually-hidden">Loading...</span>
-                        </div>
-                        <p class="mt-2">Loading storm data...</p>
-                    </div>
-
-                    <!-- Error Message -->
-                    <div id="storm-error-message" class="alert alert-danger d-none" role="alert">
-                        Error loading storm data. Please try again later.
-                    </div>
-
-                    <!-- Alert Level -->
-                    <div class="alert-level" id="alert-level">
-                        <span id="alert-text">No Active Alerts</span>
-                    </div>
-
-                    <!-- Weather Alerts -->
-                    <div class="info-card" id="alerts-container" style="display: none;">
-                        <h5>Weather Alerts</h5>
-                        <div id="alerts-list">
-                            <!-- Alerts will be populated here -->
-                        </div>
-                    </div>
-
-                    <!-- Storm Type and Description -->
-                    <div class="info-card">
-                        <h5>Storm Type</h5>
-                        <p id="storm-type" class="info-value">--</p>
-                        <p id="storm-description" class="text-muted small">--</p>
-                    </div>
-
-                    <!-- Movement Information -->
-                    <div class="info-card">
-                        <h5>Movement</h5>
-                        <div class="row">
-                            <div class="col-6">
-                                <p class="info-label">Speed</p>
-                                <p id="storm-speed" class="info-value">-- mph</p>
-                            </div>
-                            <div class="col-6">
-                                <p class="info-label">Direction</p>
-                                <p id="storm-direction" class="info-value">--°</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Additional Hazards -->
-                    <div class="info-card">
-                        <h5>Hazards</h5>
-                        <div class="row">
-                            <div class="col-6">
-                                <p class="info-label">Precipitation</p>
-                                <p id="precipitation" class="info-value">-- in</p>
-                            </div>
-                            <div class="col-6">
-                                <p class="info-label">Lightning</p>
-                                <p id="lightning-status" class="info-value">--</p>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Storm Intensity -->
-                    <div class="info-card">
-                        <h5>Storm Intensity</h5>
-                        <div class="progress">
-                            <div id="storm-intensity" class="progress-bar" role="progressbar" style="width: 0%"></div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-@section Scripts {
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-    <script>
-        let map;
-        let nexradLayer = null;
-        let retryCount = 0;
-        const maxRetries = 3;
-        const retryDelay = 5000;
-        let radarEnabled = false;
-
-        function initMap() {
-            if (!map) {
-                map = L.map('map', {
-                    center: [39.8283, -98.5795],
-                    zoom: 4,
-                    minZoom: 3,
-                    maxZoom: 18,
-                    zoomControl: true,
-                    zoomAnimation: false // Disable zoom animation to prevent overlay issues
-                });
-
-                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-                    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-                }).addTo(map);
-
-                // Add event listeners for map movement and zoom
-                // The tile layer will automatically update with the map's zoom and pan
-                // No need for manual updates on zoom or move events
-                map.on('zoomend', () => {
-                    console.log("Map zoomed to level:", map.getZoom());
-                });
-
-                map.on('moveend', () => {
-                    console.log("Map moved to:", map.getCenter());
-                });
-
-                // Initialize controls
-                initializeControls();
-
-                // Log initial map state
-                console.log("Map initialized with center:", map.getCenter(), "and zoom:", map.getZoom());
-            }
-        }
-
-        function initializeControls() {
-            // Location button
-            document.getElementById('locate-button')?.addEventListener('click', () => {
-                if (navigator.geolocation) {
-                    navigator.geolocation.getCurrentPosition(
-                        position => {
-                            const { latitude, longitude } = position.coords;
-                            map.setView([latitude, longitude], 10);
-                            updateStormData(latitude, longitude);
-                        },
-                        error => {
-                            console.error('Error getting location:', error);
-                            alert('Unable to get your location. Please enable location services and try again.');
-                        }
-                    );
-                } else {
-                    alert('Geolocation is not supported by your browser.');
+                0% {
+                    transform: rotate(0deg);
                 }
-            });
 
-            // NEXRAD button
-            document.getElementById('nexrad-button')?.addEventListener('click', () => {
-                const nexradContainer = document.getElementById('nexrad-container');
-                if (nexradContainer) {
-                    const isVisible = nexradContainer.style.display === 'block';
-                    nexradContainer.style.display = isVisible ? 'none' : 'block';
-                    radarEnabled = !isVisible;
-                    if (!isVisible) {
-                        // Always remove any existing layer first
+                100% {
+                    transform: rotate(360deg);
+                }
+            }
+
+            .user-location-marker {
+                width: 20px;
+                height: 20px;
+                background-color: #4CAF50;
+                border: 2px solid white;
+                border-radius: 50%;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            }
+
+            .storm-location-marker {
+                width: 24px;
+                height: 24px;
+                background-color: #ff4444;
+                border: 2px solid white;
+                border-radius: 50%;
+                box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                animation: pulse 2s infinite;
+            }
+
+            @@keyframes pulse {
+                    0% {
+                        transform: scale(1);
+                        opacity: 1;
+                    }
+
+                    50% {
+                        transform: scale(1.2);
+                        opacity: 0.7;
+                    }
+
+                    100% {
+                        transform: scale(1);
+                        opacity: 1;
+                    }
+                }
+
+                .storm-info {
+                    transition: opacity 0.3s ease;
+                }
+
+                .storm-info.updating {
+                    opacity: 0.7;
+                }
+
+                .alert-level {
+                    padding: 0.5rem 1rem;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    text-align: center;
+                    margin-bottom: 1rem;
+                }
+
+                .alert-warning {
+                    background-color: #fff3cd;
+                    color: #856404;
+                    border: 1px solid #ffeeba;
+                }
+
+                .alert-danger {
+                    background-color: #f8d7da;
+                    color: #721c24;
+                    border: 1px solid #f5c6cb;
+                }
+
+                .alert-info {
+                    background-color: #d1ecf1;
+                    color: #0c5460;
+                    border: 1px solid #bee5eb;
+                }
+
+                .info-card {
+                    background: white;
+                    border-radius: 8px;
+                    padding: 1.5rem;
+                    margin-bottom: 1rem;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+                }
+
+                .info-label {
+                    font-weight: bold;
+                    color: #666;
+                    margin-bottom: 0.5rem;
+                }
+
+                .info-value {
+                    font-size: 1.1rem;
+                    color: #333;
+                }
+
+                .predicted-path {
+                    stroke-dasharray: 5, 10;
+                    animation: dash 30s linear infinite;
+                }
+
+                @@keyframes dash {
+                        to {
+                            stroke-dashoffset: -1000;
+                        }
+                    }
+
+                    .leaflet-control-locate {
+                        z-index: 1000 !important;
+                        pointer-events: auto !important;
+                        background: white !important;
+                        padding: 5px !important;
+                        border-radius: 4px !important;
+                        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2) !important;
+                        margin-top: 10px !important;
+                        margin-left: 10px !important;
+                        position: relative !important;
+                    }
+
+                    .leaflet-control-zoom {
+                        z-index: 1000 !important;
+                        margin-top: 10px !important;
+                        margin-left: 10px !important;
+                        position: relative !important;
+                    }
+
+                    .leaflet-control-radar {
+                        z-index: 1000 !important;
+                        margin-top: 10px !important;
+                        margin-right: 10px !important;
+                        position: relative !important;
+                    }
+
+                    .leaflet-control-container {
+                        z-index: 1000 !important;
+                        pointer-events: auto !important;
+                    }
+
+                    .leaflet-top,
+                    .leaflet-bottom {
+                        z-index: 1000 !important;
+                    }
+
+                    .leaflet-control {
+                        z-index: 1000 !important;
+                    }
+
+                    .nexrad-overlay {
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        width: 100%;
+                        height: 100%;
+                        z-index: 2;
+                        pointer-events: none;
+                        display: none;
+                    }
+
+                    .nexrad-controls {
+                        position: absolute;
+                        top: 10px;
+                        right: 10px;
+                        z-index: 1000;
+                        background: white;
+                        padding: 10px;
+                        border-radius: 4px;
+                        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+                        pointer-events: auto;
+                        min-width: 200px;
+                    }
+
+                    .nexrad-controls .form-range {
+                        width: 100%;
+                    }
+                </style>
+            }
+
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                            <h3 class="mb-0">Live Radar</h3>
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-light btn-sm" id="locate-button">
+                                    <i class="fas fa-location-arrow"></i> Use My Location
+                                </button>
+                                <button class="btn btn-light btn-sm" id="nexrad-button">
+                                    <i class="fas fa-radar"></i> Show NEXRAD
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="map-container">
+                                <div id="map"></div>
+                                <div id="nexrad-container" class="nexrad-overlay">
+                                    <div class="nexrad-controls">
+                                        <div class="mb-2">
+                                            <label for="nexrad-opacity" class="form-label">Opacity</label>
+                                            <input type="range" class="form-range" id="nexrad-opacity" min="0" max="100" value="70">
+                                        </div>
+                                        <div class="mb-2">
+                                            <label for="nexrad-product" class="form-label">Product</label>
+                                            <select class="form-select" id="nexrad-product">
+                                                <option value="N0R">Base Reflectivity (N0R)</option>
+                                                <option value="N0S">Storm Relative Motion (N0S)</option>
+                                                <option value="N0V">Velocity (N0V)</option>
+                                                <option value="N0C">Composite Reflectivity (N0C)</option>
+                                                <option value="N0H">Hybrid Scan Reflectivity (N0H)</option>
+                                                <option value="bref_qcd">Base Reflectivity Quick Color Display</option>
+                                            </select>
+                                        </div>
+                                        <div class="mb-2">
+                                            <label for="nexrad-site" class="form-label">Radar Site</label>
+                                            <select class="form-select" id="nexrad-site">
+                                                <option value="auto">Auto (Nearest)</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div id="loading-indicator" class="loading-indicator">
+                                    <div class="spinner"></div>
+                                    <span>Loading radar...</span>
+                                </div>
+                                <div id="error-message" class="error-message">
+                                    <i class="fas fa-exclamation-circle"></i>
+                                    <span>Error loading radar image</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <!-- Local Weather Data Card -->
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-primary text-white">
+                            <h3 class="mb-0">Local Weather Data</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="weather-info" class="storm-info">
+                                <!-- Loading Indicator -->
+                                <div id="weather-loading-indicator" class="text-center py-3">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-2">Loading weather data...</p>
+                                </div>
+
+                                <!-- Error Message -->
+                                <div id="weather-error-message" class="alert alert-danger d-none" role="alert">
+                                    Error loading weather data. Please try again later.
+                                </div>
+
+                                <!-- Weather Station Info -->
+                                <div class="info-card">
+                                    <h5>Weather Station</h5>
+                                    <p id="station-name" class="info-value">--</p>
+                                    <p id="station-distance" class="text-muted small">--</p>
+                                </div>
+
+                                <!-- Current Conditions -->
+                                <div class="info-card">
+                                    <h5>Current Conditions</h5>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <p class="info-label">Temperature</p>
+                                            <p id="temperature" class="info-value">--°F</p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p class="info-label">Wind Speed</p>
+                                            <p id="wind-speed" class="info-value">-- mph</p>
+                                        </div>
+                                    </div>
+                                    <div class="row mt-2">
+                                        <div class="col-6">
+                                            <p class="info-label">Wind Direction</p>
+                                            <p id="wind-direction" class="info-value">--°</p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p class="info-label">Last Updated</p>
+                                            <p id="last-updated" class="info-value">--</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Storm Information Card -->
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h3 class="mb-0">Storm Information</h3>
+                        </div>
+                        <div class="card-body">
+                            <div id="storm-info" class="storm-info">
+                                <!-- Loading Indicator -->
+                                <div id="storm-loading-indicator" class="text-center py-3">
+                                    <div class="spinner-border text-primary" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                    <p class="mt-2">Loading storm data...</p>
+                                </div>
+
+                                <!-- Error Message -->
+                                <div id="storm-error-message" class="alert alert-danger d-none" role="alert">
+                                    Error loading storm data. Please try again later.
+                                </div>
+
+                                <!-- Alert Level -->
+                                <div class="alert-level" id="alert-level">
+                                    <span id="alert-text">No Active Alerts</span>
+                                </div>
+
+                                <!-- Weather Alerts -->
+                                <div class="info-card" id="alerts-container" style="display: none;">
+                                    <h5>Weather Alerts</h5>
+                                    <div id="alerts-list">
+                                        <!-- Alerts will be populated here -->
+                                    </div>
+                                </div>
+
+                                <!-- Storm Type and Description -->
+                                <div class="info-card">
+                                    <h5>Storm Type</h5>
+                                    <p id="storm-type" class="info-value">--</p>
+                                    <p id="storm-description" class="text-muted small">--</p>
+                                </div>
+
+                                <!-- Movement Information -->
+                                <div class="info-card">
+                                    <h5>Movement</h5>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <p class="info-label">Speed</p>
+                                            <p id="storm-speed" class="info-value">-- mph</p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p class="info-label">Direction</p>
+                                            <p id="storm-direction" class="info-value">--°</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Additional Hazards -->
+                                <div class="info-card">
+                                    <h5>Hazards</h5>
+                                    <div class="row">
+                                        <div class="col-6">
+                                            <p class="info-label">Precipitation</p>
+                                            <p id="precipitation" class="info-value">-- in</p>
+                                        </div>
+                                        <div class="col-6">
+                                            <p class="info-label">Lightning</p>
+                                            <p id="lightning-status" class="info-value">--</p>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <!-- Storm Intensity -->
+                                <div class="info-card">
+                                    <h5>Storm Intensity</h5>
+                                    <div class="progress">
+                                        <div id="storm-intensity" class="progress-bar" role="progressbar" style="width: 0%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            @section Scripts {
+                <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+                    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+                <script>
+                    let map;
+                    let nexradLayer = null;
+                    let retryCount = 0;
+                    const maxRetries = 3;
+                    const retryDelay = 5000;
+                    let radarEnabled = false;
+
+                    function initMap() {
+                        if (!map) {
+                            map = L.map('map', {
+                                center: [39.8283, -98.5795],
+                                zoom: 4,
+                                minZoom: 3,
+                                maxZoom: 18,
+                                zoomControl: true,
+                                zoomAnimation: false // Disable zoom animation to prevent overlay issues
+                            });
+
+                            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                                attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                            }).addTo(map);
+
+                            // Add event listeners for map movement and zoom
+                            // The tile layer will automatically update with the map's zoom and pan
+                            // No need for manual updates on zoom or move events
+                            map.on('zoomend', () => {
+                                console.log("Map zoomed to level:", map.getZoom());
+                            });
+
+                            map.on('moveend', () => {
+                                console.log("Map moved to:", map.getCenter());
+                            });
+
+                            // Initialize controls
+                            initializeControls();
+
+                            // Log initial map state
+                            console.log("Map initialized with center:", map.getCenter(), "and zoom:", map.getZoom());
+                        }
+                    }
+
+                    function initializeControls() {
+                        // Location button
+                        document.getElementById('locate-button')?.addEventListener('click', () => {
+                            if (navigator.geolocation) {
+                                navigator.geolocation.getCurrentPosition(
+                                    position => {
+                                        const { latitude, longitude } = position.coords;
+                                        map.setView([latitude, longitude], 10);
+                                        updateStormData(latitude, longitude);
+                                    },
+                                    error => {
+                                        console.error('Error getting location:', error);
+                                        alert('Unable to get your location. Please enable location services and try again.');
+                                    }
+                                );
+                            } else {
+                                alert('Geolocation is not supported by your browser.');
+                            }
+                        });
+
+                        // NEXRAD button
+                        document.getElementById('nexrad-button')?.addEventListener('click', () => {
+                            const nexradContainer = document.getElementById('nexrad-container');
+                            if (nexradContainer) {
+                                const isVisible = nexradContainer.style.display === 'block';
+                                nexradContainer.style.display = isVisible ? 'none' : 'block';
+                                radarEnabled = !isVisible;
+                                if (!isVisible) {
+                                    // Always remove any existing layer first
+                                    if (nexradLayer) {
+                                        map.removeLayer(nexradLayer);
+                                        nexradLayer = null;
+                                    }
+                                    // Then update with a fresh layer
+                                    updateNEXRADLayer();
+                                } else if (nexradLayer) {
+                                    map.removeLayer(nexradLayer);
+                                    nexradLayer = null;
+                                }
+                            }
+                        });
+
+                        // NEXRAD controls
+                        document.getElementById('nexrad-opacity')?.addEventListener('input', e => {
+                            if (nexradLayer) {
+                                nexradLayer.setOpacity(e.target.value / 100);
+                            }
+                        });
+
+                        document.getElementById('nexrad-product')?.addEventListener('change', updateNEXRADLayer);
+                        document.getElementById('nexrad-site')?.addEventListener('change', updateNEXRADLayer);
+                    }
+
+                    function updateNEXRADLayer() {
+                        if (!radarEnabled) return;
+
+                        // Always remove the existing layer first
                         if (nexradLayer) {
                             map.removeLayer(nexradLayer);
                             nexradLayer = null;
                         }
-                        // Then update with a fresh layer
-                        updateNEXRADLayer();
-                    } else if (nexradLayer) {
-                        map.removeLayer(nexradLayer);
-                        nexradLayer = null;
-                    }
-                }
-            });
 
-            // NEXRAD controls
-            document.getElementById('nexrad-opacity')?.addEventListener('input', e => {
-                if (nexradLayer) {
-                    nexradLayer.setOpacity(e.target.value / 100);
-                }
-            });
+                        // Get current map center and zoom level
+                        var center = map.getCenter();
+                        var zoom = map.getZoom();
+                        console.log(
+                            "Getting radar data for coordinates:",
+                            center.lat,
+                            center.lng,
+                            "at zoom level:",
+                            zoom
+                        );
 
-            document.getElementById('nexrad-product')?.addEventListener('change', updateNEXRADLayer);
-            document.getElementById('nexrad-site')?.addEventListener('change', updateNEXRADLayer);
-        }
+                        // Show loading indicator
+                        const loadingIndicator = document.getElementById('loading-indicator');
+                        const errorMessage = document.getElementById('error-message');
+                        if (loadingIndicator) loadingIndicator.style.display = 'flex';
+                        if (errorMessage) errorMessage.style.display = 'none';
 
-        function updateNEXRADLayer() {
-            if (!radarEnabled) return;
+                        // Create a tile layer for the radar overlay
+                        // This ensures proper synchronization with the map's zoom and pan
+                        nexradLayer = L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png', {
+                            opacity: 0.7,
+                            attribution: 'Radar data from Iowa Environmental Mesonet',
+                            maxZoom: 18,
+                            minZoom: 3,
+                            tileSize: 256,
+                            errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+                            // Add a custom function to handle zoom levels
+                            getTileUrl: function (coords) {
+                                // For zoom levels below 7, use zoom level 7 tiles but scale them appropriately
+                                const effectiveZoom = Math.max(7, coords.z);
+                                // Use the highest resolution product available (n0q-900913)
+                                return `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/${effectiveZoom}/${coords.x}/${coords.y}.png`;
+                            }
+                        }).addTo(map);
 
-            // Always remove the existing layer first
-            if (nexradLayer) {
-                map.removeLayer(nexradLayer);
-                nexradLayer = null;
-            }
-
-            // Get current map center and zoom level
-            var center = map.getCenter();
-            var zoom = map.getZoom();
-            console.log(
-                "Getting radar data for coordinates:",
-                center.lat,
-                center.lng,
-                "at zoom level:",
-                zoom
-            );
-
-            // Show loading indicator
-            const loadingIndicator = document.getElementById('loading-indicator');
-            const errorMessage = document.getElementById('error-message');
-            if (loadingIndicator) loadingIndicator.style.display = 'flex';
-            if (errorMessage) errorMessage.style.display = 'none';
-
-            // Create a tile layer for the radar overlay
-            // This ensures proper synchronization with the map's zoom and pan
-            nexradLayer = L.tileLayer('https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/{z}/{x}/{y}.png', {
-                opacity: 0.7,
-                attribution: 'Radar data from Iowa Environmental Mesonet',
-                maxZoom: 18,
-                minZoom: 3,
-                tileSize: 256,
-                errorTileUrl: 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
-                // Add a custom function to handle zoom levels
-                getTileUrl: function (coords) {
-                    // For zoom levels below 7, use zoom level 7 tiles but scale them appropriately
-                    const effectiveZoom = Math.max(7, coords.z);
-                    // Use the highest resolution product available (n0q-900913)
-                    return `https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/nexrad-n0q-900913/${effectiveZoom}/${coords.x}/${coords.y}.png`;
-                }
-            }).addTo(map);
-
-            // Add error handling
-            nexradLayer.on("error", function (e) {
-                console.error("Error loading radar image:", e);
-                if (nexradLayer) {
-                    map.removeLayer(nexradLayer);
-                    nexradLayer = null;
-                }
-                if (errorMessage) errorMessage.style.display = 'flex';
-            });
-
-            // Hide loading indicator
-            if (loadingIndicator) loadingIndicator.style.display = 'none';
-        }
-
-        // Function to update storm data
-        async function updateStormData(latitude, longitude) {
-            try {
-                // Show loading indicator for weather data
-                const weatherInfo = document.getElementById('weather-info');
-                const weatherLoadingIndicator = document.getElementById('weather-loading-indicator');
-                const weatherErrorMessage = document.getElementById('weather-error-message');
-
-                // Set up loading timeout
-                const loadingTimeout = setTimeout(() => {
-                    if (weatherLoadingIndicator) weatherLoadingIndicator.style.display = 'block';
-                    if (weatherInfo) weatherInfo.classList.add('updating');
-                }, 1000); // Show loading after 1 second
-
-                if (weatherErrorMessage) weatherErrorMessage.classList.add('d-none');
-
-                // Show loading indicator for storm info
-                const stormInfo = document.getElementById('storm-info');
-                const stormLoadingIndicator = document.getElementById('storm-loading-indicator');
-                const stormErrorMessage = document.getElementById('storm-error-message');
-
-                // Set up loading timeout for storm data
-                const stormLoadingTimeout = setTimeout(() => {
-                    if (stormLoadingIndicator) stormLoadingIndicator.style.display = 'block';
-                    if (stormInfo) stormInfo.classList.add('updating');
-                }, 1000); // Show loading after 1 second
-
-                if (stormErrorMessage) stormErrorMessage.classList.add('d-none');
-
-                // Fetch storm data from the API
-                const response = await fetch(`/api/Weather/storm-data?latitude=${latitude}&longitude=${longitude}`);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const data = await response.json();
-                console.log("Storm data:", data);
-
-                // Clear loading timeouts since we got the data
-                clearTimeout(loadingTimeout);
-                clearTimeout(stormLoadingTimeout);
-
-                if (data) {
-                    // Update weather data card
-                    if (data.temperature !== undefined) {
-                        document.getElementById('temperature').textContent = `${data.temperature}°F`;
-                    }
-
-                    if (data.windSpeed !== undefined) {
-                        document.getElementById('wind-speed').textContent = `${data.windSpeed} mph`;
-                    }
-
-                    if (data.stationName) {
-                        document.getElementById('station-name').textContent = data.stationName;
-                        document.getElementById('station-distance').textContent = `Distance: ${data.distance.toFixed(1)} km`;
-                    }
-
-                    if (data.timestamp) {
-                        document.getElementById('last-updated').textContent = new Date(data.timestamp).toLocaleString();
-                    } else {
-                        document.getElementById('last-updated').textContent = new Date().toLocaleString();
-                    }
-
-                    document.getElementById('wind-direction').textContent = 'N/A';
-
-                    // Update storm info card (if we have extended data)
-                    if (data.currentConditions) {
-                        // Set storm type
-                        document.getElementById('storm-type').textContent = data.currentConditions.stormType || 'None';
-                        document.getElementById('storm-description').textContent = data.currentConditions.stormDescription || 'No storm activity';
-
-                        // Set precipitation
-                        document.getElementById('precipitation').textContent = data.currentConditions.precipitation ?
-                            `${data.currentConditions.precipitation} in` : 'None';
-
-                        // Set storm intensity
-                        if (data.currentConditions.stormIntensity !== undefined) {
-                            document.getElementById('storm-intensity').style.width = `${data.currentConditions.stormIntensity * 20}%`;
-                        } else {
-                            document.getElementById('storm-intensity').style.width = '0%';
-                        }
-                    } else {
-                        // Default values when no storm data
-                        document.getElementById('storm-type').textContent = 'None';
-                        document.getElementById('storm-description').textContent = 'No storm activity';
-                        document.getElementById('precipitation').textContent = 'None';
-                        document.getElementById('storm-intensity').style.width = '0%';
-                        document.getElementById('storm-speed').textContent = 'N/A';
-                        document.getElementById('storm-direction').textContent = 'N/A';
-                        document.getElementById('lightning-status').textContent = 'None';
-                    }
-                }
-
-                // Update alerts if they exist
-                if (data && data.alerts && data.alerts.length > 0) {
-                    const alertsContainer = document.getElementById('alerts-container');
-                    const alertsList = document.getElementById('alerts-list');
-                    const alertText = document.getElementById('alert-text');
-
-                    if (alertsContainer) alertsContainer.style.display = 'block';
-                    if (alertText) alertText.textContent = `${data.alerts.length} Active Alert(s)`;
-
-                    if (alertsList) {
-                        alertsList.innerHTML = '';
-                        data.alerts.forEach(alert => {
-                            const alertElement = document.createElement('div');
-                            alertElement.className = 'alert alert-warning mb-2';
-                            alertElement.innerHTML = `
-                                            <h6>${alert.event}</h6>
-                                            <p class="mb-1"><strong>Severity:</strong> ${alert.severity}</p>
-                                            <p class="mb-1"><strong>Urgency:</strong> ${alert.urgency}</p>
-                                            <p class="mb-1">${alert.description}</p>
-                                            <small>Valid: ${new Date(alert.startTime).toLocaleString()} - ${new Date(alert.endTime).toLocaleString()}</small>
-                                        `;
-                            alertsList.appendChild(alertElement);
+                        // Add error handling
+                        nexradLayer.on("error", function (e) {
+                            console.error("Error loading radar image:", e);
+                            if (nexradLayer) {
+                                map.removeLayer(nexradLayer);
+                                nexradLayer = null;
+                            }
+                            if (errorMessage) errorMessage.style.display = 'flex';
                         });
+
+                        // Hide loading indicator
+                        if (loadingIndicator) loadingIndicator.style.display = 'none';
                     }
-                } else {
-                    const alertsContainer = document.getElementById('alerts-container');
-                    const alertText = document.getElementById('alert-text');
 
-                    if (alertsContainer) alertsContainer.style.display = 'none';
-                    if (alertText) alertText.textContent = 'No Active Alerts';
-                }
+                    // Function to update storm data
+                    async function updateStormData(latitude, longitude) {
+                        try {
+                            // Show loading indicator for weather data
+                            const weatherInfo = document.getElementById('weather-info');
+                            const weatherLoadingIndicator = document.getElementById('weather-loading-indicator');
+                            const weatherErrorMessage = document.getElementById('weather-error-message');
 
-                // Hide loading indicators
-                if (weatherLoadingIndicator) weatherLoadingIndicator.style.display = 'none';
-                if (weatherInfo) weatherInfo.classList.remove('updating');
-                if (stormLoadingIndicator) stormLoadingIndicator.style.display = 'none';
-                if (stormInfo) stormInfo.classList.remove('updating');
+                            // Set up loading timeout
+                            const loadingTimeout = setTimeout(() => {
+                                if (weatherLoadingIndicator) weatherLoadingIndicator.style.display = 'block';
+                                if (weatherInfo) weatherInfo.classList.add('updating');
+                            }, 1000); // Show loading after 1 second
 
-            } catch (error) {
-                console.error("Error fetching weather/storm data:", error);
-                // Show error for weather data
-                const weatherErrorMessage = document.getElementById('weather-error-message');
-                if (weatherErrorMessage) {
-                    weatherErrorMessage.classList.remove('d-none');
-                    weatherErrorMessage.textContent = `Error loading weather data: ${error.message}`;
-                }
-                const weatherLoadingIndicator = document.getElementById('weather-loading-indicator');
-                if (weatherLoadingIndicator) weatherLoadingIndicator.style.display = 'none';
-                const weatherInfo = document.getElementById('weather-info');
-                if (weatherInfo) weatherInfo.classList.remove('updating');
+                            if (weatherErrorMessage) weatherErrorMessage.classList.add('d-none');
 
-                // Show error for storm data
-                const stormErrorMessage = document.getElementById('storm-error-message');
-                if (stormErrorMessage) {
-                    stormErrorMessage.classList.remove('d-none');
-                    stormErrorMessage.textContent = `Error loading storm data: ${error.message}`;
-                }
-                const stormLoadingIndicator = document.getElementById('storm-loading-indicator');
-                if (stormLoadingIndicator) stormLoadingIndicator.style.display = 'none';
-                const stormInfo = document.getElementById('storm-info');
-                if (stormInfo) stormInfo.classList.remove('updating');
+                            // Show loading indicator for storm info
+                            const stormInfo = document.getElementById('storm-info');
+                            const stormLoadingIndicator = document.getElementById('storm-loading-indicator');
+                            const stormErrorMessage = document.getElementById('storm-error-message');
+
+                            // Set up loading timeout for storm data
+                            const stormLoadingTimeout = setTimeout(() => {
+                                if (stormLoadingIndicator) stormLoadingIndicator.style.display = 'block';
+                                if (stormInfo) stormInfo.classList.add('updating');
+                            }, 1000); // Show loading after 1 second
+
+                            if (stormErrorMessage) stormErrorMessage.classList.add('d-none');
+
+                            // Fetch storm data from the API
+                            const response = await fetch(`/api/Weather/storm-data?latitude=${latitude}&longitude=${longitude}`);
+                            if (!response.ok) {
+                                throw new Error(`HTTP error! status: ${response.status}`);
+                            }
+                            const data = await response.json();
+                            console.log("Storm data:", data);
+
+                            // Clear loading timeouts since we got the data
+                            clearTimeout(loadingTimeout);
+                            clearTimeout(stormLoadingTimeout);
+
+                            if (data) {
+                                // Update weather data card
+                                if (data.temperature !== undefined) {
+                                    // Convert Celsius to Fahrenheit: (C × 9/5) + 32
+                                    const fahrenheit = (data.temperature * 9 / 5) + 32;
+                                    document.getElementById('temperature').textContent = `${fahrenheit.toFixed(1)}°F`;
+                                }
+
+                                if (data.windSpeed !== undefined) {
+                                    document.getElementById('wind-speed').textContent = `${data.windSpeed} mph`;
+                                }
+
+                                if (data.stationName) {
+                                    document.getElementById('station-name').textContent = data.stationName;
+                                    document.getElementById('station-distance').textContent = `Distance: ${data.distance.toFixed(1)} miles`;
+                                }
+
+                                if (data.timestamp) {
+                                    document.getElementById('last-updated').textContent = new Date(data.timestamp).toLocaleString();
+                                } else {
+                                    document.getElementById('last-updated').textContent = new Date().toLocaleString();
+                                }
+
+                                document.getElementById('wind-direction').textContent = 'N/A';
+
+                                // Update storm info card (if we have extended data)
+                                if (data.currentConditions) {
+                                    // Set storm type
+                                    document.getElementById('storm-type').textContent = data.currentConditions.stormType || 'None';
+                                    document.getElementById('storm-description').textContent = data.currentConditions.stormDescription || 'No storm activity';
+
+                                    // Set precipitation
+                                    document.getElementById('precipitation').textContent = data.currentConditions.precipitation ?
+                                        `${data.currentConditions.precipitation} in` : 'None';
+
+                                    // Set storm intensity
+                                    if (data.currentConditions.stormIntensity !== undefined) {
+                                        document.getElementById('storm-intensity').style.width = `${data.currentConditions.stormIntensity * 20}%`;
+                                    } else {
+                                        document.getElementById('storm-intensity').style.width = '0%';
+                                    }
+                                } else {
+                                    // Default values when no storm data
+                                    document.getElementById('storm-type').textContent = 'None';
+                                    document.getElementById('storm-description').textContent = 'No storm activity';
+                                    document.getElementById('precipitation').textContent = 'None';
+                                    document.getElementById('storm-intensity').style.width = '0%';
+                                    document.getElementById('storm-speed').textContent = 'N/A';
+                                    document.getElementById('storm-direction').textContent = 'N/A';
+                                    document.getElementById('lightning-status').textContent = 'None';
+                                }
+                            }
+
+                            // Update alerts if they exist
+                            if (data && data.alerts && data.alerts.length > 0) {
+                                const alertsContainer = document.getElementById('alerts-container');
+                                const alertsList = document.getElementById('alerts-list');
+                                const alertText = document.getElementById('alert-text');
+
+                                if (alertsContainer) alertsContainer.style.display = 'block';
+                                if (alertText) alertText.textContent = `${data.alerts.length} Active Alert(s)`;
+
+                                if (alertsList) {
+                                    alertsList.innerHTML = '';
+                                    data.alerts.forEach(alert => {
+                                        const alertElement = document.createElement('div');
+                                        alertElement.className = 'alert alert-warning mb-2';
+                                        alertElement.innerHTML = `
+                                                                            <h6>${alert.event}</h6>
+                                                                            <p class="mb-1"><strong>Severity:</strong> ${alert.severity}</p>
+                                                                            <p class="mb-1"><strong>Urgency:</strong> ${alert.urgency}</p>
+                                                                            <p class="mb-1">${alert.description}</p>
+                                                                            <small>Valid: ${new Date(alert.startTime).toLocaleString()} - ${new Date(alert.endTime).toLocaleString()}</small>
+                                                                        `;
+                                        alertsList.appendChild(alertElement);
+                                    });
+                                }
+                            } else {
+                                const alertsContainer = document.getElementById('alerts-container');
+                                const alertText = document.getElementById('alert-text');
+
+                                if (alertsContainer) alertsContainer.style.display = 'none';
+                                if (alertText) alertText.textContent = 'No Active Alerts';
+                            }
+
+                            // Hide loading indicators
+                            if (weatherLoadingIndicator) weatherLoadingIndicator.style.display = 'none';
+                            if (weatherInfo) weatherInfo.classList.remove('updating');
+                            if (stormLoadingIndicator) stormLoadingIndicator.style.display = 'none';
+                            if (stormInfo) stormInfo.classList.remove('updating');
+
+                        } catch (error) {
+                            console.error("Error fetching weather/storm data:", error);
+                            // Show error for weather data
+                            const weatherErrorMessage = document.getElementById('weather-error-message');
+                            if (weatherErrorMessage) {
+                                weatherErrorMessage.classList.remove('d-none');
+                                weatherErrorMessage.textContent = `Error loading weather data: ${error.message}`;
+                            }
+                            const weatherLoadingIndicator = document.getElementById('weather-loading-indicator');
+                            if (weatherLoadingIndicator) weatherLoadingIndicator.style.display = 'none';
+                            const weatherInfo = document.getElementById('weather-info');
+                            if (weatherInfo) weatherInfo.classList.remove('updating');
+
+                            // Show error for storm data
+                            const stormErrorMessage = document.getElementById('storm-error-message');
+                            if (stormErrorMessage) {
+                                stormErrorMessage.classList.remove('d-none');
+                                stormErrorMessage.textContent = `Error loading storm data: ${error.message}`;
+                            }
+                            const stormLoadingIndicator = document.getElementById('storm-loading-indicator');
+                            if (stormLoadingIndicator) stormLoadingIndicator.style.display = 'none';
+                            const stormInfo = document.getElementById('storm-info');
+                            if (stormInfo) stormInfo.classList.remove('updating');
+                        }
+                    }
+
+                    // Initialize the map when the page loads
+                    document.addEventListener('DOMContentLoaded', initMap);
+                </script>
             }
-        }
-
-        // Initialize the map when the page loads
-        document.addEventListener('DOMContentLoaded', initMap);
-    </script>
-}
