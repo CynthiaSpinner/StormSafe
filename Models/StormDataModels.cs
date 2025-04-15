@@ -4,10 +4,17 @@ namespace StormSafe.Models
 {
     public class StormData
     {
-        public string? StormType { get; set; }
-        public double StormIntensity { get; set; }
-        public string? StormDescription { get; set; }
-        public List<WeatherStation> Stations { get; set; } = new();
+        public double Temperature { get; set; }
+        public double WindSpeed { get; set; }
+        public string? StationId { get; set; }
+        public string? StationName { get; set; }
+        public double Distance { get; set; }
+        public DateTime Timestamp { get; set; }
+        public DateTime LastUpdated { get; set; }
+        public StormConditions StormConditions { get; set; } = new();
+        public LocalWeatherConditions LocalWeather { get; set; } = new();
+        public List<ForecastPeriod> ForecastPeriods { get; set; } = new();
+        public List<Alert> Alerts { get; set; } = new();
     }
 
     public class WeatherStation

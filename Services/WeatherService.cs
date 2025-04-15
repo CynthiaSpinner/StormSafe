@@ -580,7 +580,7 @@ namespace StormSafe.Services
                     Timestamp = DateTime.UtcNow
                 },
                 ForecastPeriods = new List<ForecastPeriod>(),
-                Alerts = new List<WeatherAlert>(),
+                Alerts = new List<Alert>(),
                 LastUpdated = DateTime.UtcNow
             };
         }
