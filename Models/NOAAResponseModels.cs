@@ -167,52 +167,52 @@ namespace StormSafe.Models
         public List<object>? PresentWeather { get; set; }
 
         [JsonPropertyName("temperature")]
-        public NOAATemperature? Temperature { get; set; }
+        public NOAAValue? Temperature { get; set; }
 
         [JsonPropertyName("dewpoint")]
-        public NOAATemperature? Dewpoint { get; set; }
+        public NOAAValue? Dewpoint { get; set; }
 
         [JsonPropertyName("windDirection")]
-        public NOAATemperature? WindDirection { get; set; }
+        public NOAAValue? WindDirection { get; set; }
 
         [JsonPropertyName("windSpeed")]
-        public NOAATemperature? WindSpeed { get; set; }
+        public NOAAValue? WindSpeed { get; set; }
 
         [JsonPropertyName("windGust")]
-        public NOAATemperature? WindGust { get; set; }
+        public NOAAValue? WindGust { get; set; }
 
         [JsonPropertyName("barometricPressure")]
-        public NOAATemperature? BarometricPressure { get; set; }
+        public NOAAValue? BarometricPressure { get; set; }
 
         [JsonPropertyName("seaLevelPressure")]
-        public NOAATemperature? SeaLevelPressure { get; set; }
+        public NOAAValue? SeaLevelPressure { get; set; }
 
         [JsonPropertyName("visibility")]
-        public NOAATemperature? Visibility { get; set; }
+        public NOAAValue? Visibility { get; set; }
 
         [JsonPropertyName("maxTemperatureLast24Hours")]
-        public NOAATemperature? MaxTemperatureLast24Hours { get; set; }
+        public NOAAValue? MaxTemperatureLast24Hours { get; set; }
 
         [JsonPropertyName("minTemperatureLast24Hours")]
-        public NOAATemperature? MinTemperatureLast24Hours { get; set; }
+        public NOAAValue? MinTemperatureLast24Hours { get; set; }
 
         [JsonPropertyName("precipitationLastHour")]
-        public NOAATemperature? PrecipitationLastHour { get; set; }
+        public NOAAValue? PrecipitationLastHour { get; set; }
 
         [JsonPropertyName("precipitationLast3Hours")]
-        public NOAATemperature? PrecipitationLast3Hours { get; set; }
+        public NOAAValue? PrecipitationLast3Hours { get; set; }
 
         [JsonPropertyName("precipitationLast6Hours")]
-        public NOAATemperature? PrecipitationLast6Hours { get; set; }
+        public NOAAValue? PrecipitationLast6Hours { get; set; }
 
         [JsonPropertyName("relativeHumidity")]
-        public NOAATemperature? RelativeHumidity { get; set; }
+        public NOAAValue? RelativeHumidity { get; set; }
 
         [JsonPropertyName("windChill")]
-        public NOAATemperature? WindChill { get; set; }
+        public NOAAValue? WindChill { get; set; }
 
         [JsonPropertyName("heatIndex")]
-        public NOAATemperature? HeatIndex { get; set; }
+        public NOAAValue? HeatIndex { get; set; }
 
         [JsonPropertyName("cloudLayers")]
         public List<NOAACloudLayer>? CloudLayers { get; set; }
@@ -254,7 +254,7 @@ namespace StormSafe.Models
     public class NOAAValue
     {
         [JsonPropertyName("value")]
-        public double Value { get; set; }
+        public double? Value { get; set; }
 
         [JsonPropertyName("unitCode")]
         public string UnitCode { get; set; } = string.Empty;
