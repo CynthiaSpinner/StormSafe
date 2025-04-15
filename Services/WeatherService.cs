@@ -85,9 +85,18 @@ namespace StormSafe.Services
                             continue;
                         }
 
-                        // Check for storm indicators
+                        // Get all weather metrics
                         var windSpeed = observation.Properties.WindSpeed?.Value ?? 0;
                         var temperature = observation.Properties.Temperature?.Value ?? 0;
+                        var windDirection = observation.Properties.WindDirection?.Value ?? 0;
+                        var dewpoint = observation.Properties.Dewpoint?.Value ?? 0;
+                        var windChill = observation.Properties.WindChill?.Value ?? 0;
+                        var heatIndex = observation.Properties.HeatIndex?.Value ?? 0;
+                        var relativeHumidity = observation.Properties.RelativeHumidity?.Value ?? 0;
+                        var visibility = observation.Properties.Visibility?.Value ?? 0;
+                        var barometricPressure = observation.Properties.BarometricPressure?.Value ?? 0;
+                        var seaLevelPressure = observation.Properties.SeaLevelPressure?.Value ?? 0;
+                        var windGust = observation.Properties.WindGust?.Value ?? 0;
                         var timestamp = observation.Properties.Timestamp;
 
                         // If we find storm indicators, update the local data with storm information
@@ -108,21 +117,30 @@ namespace StormSafe.Services
                                 Distance = distance,
                                 Timestamp = timestamp,
                                 LastUpdated = DateTime.UtcNow,
-                                CurrentConditions = new CurrentConditions
+                                StormConditions = new StormConditions
                                 {
-                                    Temperature = temperature,
-                                    WindSpeed = windSpeed,
-                                    WindDirection = "N", // Default value
-                                    Precipitation = 0, // Default value
-                                    Pressure = 0, // Default value
-                                    Visibility = 0, // Default value
-                                    CloudCover = 0, // Default value
-                                    Humidity = 0, // Default value
                                     StormType = stormType,
                                     StormIntensity = stormIntensity,
                                     StormDescription = stormDescription,
+                                    WindGust = windGust,
+                                    Precipitation = 0,
+                                    Visibility = visibility,
+                                    CloudCover = 0
+                                },
+                                LocalWeather = new LocalWeatherConditions
+                                {
+                                    Temperature = temperature,
+                                    WindSpeed = windSpeed,
+                                    WindDirection = double.Parse(windDirection.ToString()),
+                                    Dewpoint = dewpoint,
+                                    WindChill = windChill,
+                                    HeatIndex = heatIndex,
+                                    RelativeHumidity = relativeHumidity,
+                                    BarometricPressure = barometricPressure,
+                                    SeaLevelPressure = seaLevelPressure,
                                     StationName = station.Properties.Name,
-                                    StationDistance = distance
+                                    StationDistance = distance,
+                                    Timestamp = timestamp
                                 }
                             };
                             break;
@@ -139,21 +157,30 @@ namespace StormSafe.Services
                                 Distance = distance,
                                 Timestamp = timestamp,
                                 LastUpdated = DateTime.UtcNow,
-                                CurrentConditions = new CurrentConditions
+                                StormConditions = new StormConditions
                                 {
-                                    Temperature = temperature,
-                                    WindSpeed = windSpeed,
-                                    WindDirection = "N", // Default value
-                                    Precipitation = 0, // Default value
-                                    Pressure = 0, // Default value
-                                    Visibility = 0, // Default value
-                                    CloudCover = 0, // Default value
-                                    Humidity = 0, // Default value
                                     StormType = "No Storm",
                                     StormIntensity = 0,
                                     StormDescription = "No storm activity detected",
+                                    WindGust = windGust,
+                                    Precipitation = 0,
+                                    Visibility = visibility,
+                                    CloudCover = 0
+                                },
+                                LocalWeather = new LocalWeatherConditions
+                                {
+                                    Temperature = temperature,
+                                    WindSpeed = windSpeed,
+                                    WindDirection = double.Parse(windDirection.ToString()),
+                                    Dewpoint = dewpoint,
+                                    WindChill = windChill,
+                                    HeatIndex = heatIndex,
+                                    RelativeHumidity = relativeHumidity,
+                                    BarometricPressure = barometricPressure,
+                                    SeaLevelPressure = seaLevelPressure,
                                     StationName = station.Properties.Name,
-                                    StationDistance = distance
+                                    StationDistance = distance,
+                                    Timestamp = timestamp
                                 }
                             };
                         }
@@ -527,19 +554,30 @@ namespace StormSafe.Services
         {
             return new StormData
             {
-                CurrentConditions = new CurrentConditions
+                StormConditions = new StormConditions
+                {
+                    StormType = "None",
+                    StormIntensity = 0,
+                    StormDescription = "No current conditions available",
+                    WindGust = 0,
+                    Precipitation = 0,
+                    Visibility = 0,
+                    CloudCover = 0
+                },
+                LocalWeather = new LocalWeatherConditions
                 {
                     Temperature = 0,
                     WindSpeed = 0,
                     WindDirection = "N",
-                    Precipitation = 0,
-                    Pressure = 0,
-                    Visibility = 0,
-                    CloudCover = 0,
-                    Humidity = 0,
-                    StormType = "None",
-                    StormIntensity = 0,
-                    StormDescription = "No current conditions available"
+                    Dewpoint = 0,
+                    WindChill = 0,
+                    HeatIndex = 0,
+                    RelativeHumidity = 0,
+                    BarometricPressure = 0,
+                    SeaLevelPressure = 0,
+                    StationName = "Unknown",
+                    StationDistance = 0,
+                    Timestamp = DateTime.UtcNow
                 },
                 ForecastPeriods = new List<ForecastPeriod>(),
                 Alerts = new List<WeatherAlert>(),

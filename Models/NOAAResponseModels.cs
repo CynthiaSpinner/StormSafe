@@ -361,6 +361,33 @@ namespace StormSafe.Models
         [JsonPropertyName("windSpeed")]
         public NOAAValue? WindSpeed { get; set; }
 
+        [JsonPropertyName("windDirection")]
+        public NOAAValue? WindDirection { get; set; }
+
+        [JsonPropertyName("dewpoint")]
+        public NOAAValue? Dewpoint { get; set; }
+
+        [JsonPropertyName("windChill")]
+        public NOAAValue? WindChill { get; set; }
+
+        [JsonPropertyName("heatIndex")]
+        public NOAAValue? HeatIndex { get; set; }
+
+        [JsonPropertyName("relativeHumidity")]
+        public NOAAValue? RelativeHumidity { get; set; }
+
+        [JsonPropertyName("visibility")]
+        public NOAAValue? Visibility { get; set; }
+
+        [JsonPropertyName("barometricPressure")]
+        public NOAAValue? BarometricPressure { get; set; }
+
+        [JsonPropertyName("seaLevelPressure")]
+        public NOAAValue? SeaLevelPressure { get; set; }
+
+        [JsonPropertyName("windGust")]
+        public NOAAValue? WindGust { get; set; }
+
         [JsonPropertyName("timestamp")]
         public DateTime Timestamp { get; set; }
     }
