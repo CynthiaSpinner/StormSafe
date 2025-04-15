@@ -45,93 +45,22 @@ namespace StormSafe.Services
             {
                 _logger.LogInformation("Getting storm data for coordinates: {Latitude}, {Longitude}", latitude, longitude);
 
-                // Read the saved station data
-                string filePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "response_1743802163730.json");
-                _logger.LogInformation("Reading stations from file: {FilePath}", filePath);
-
-                // Try to read the saved station data from various possible locations
-                string fileName = "response_1743802163730.json";
-                string[] possiblePaths = new[]
+                var stations = await GetNearestStationsAsync(latitude, longitude);
+                if (!stations.Any())
                 {
-                    // Current directory
-                    fileName,
-                    // Bin directory
-                    Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName),
-                    // One level up from bin
-                    Path.Combine(Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory)?.FullName ?? "", fileName),
-                    // Two levels up from bin
-                    Path.Combine(Directory.GetParent(Directory.GetParent(AppDomain.CurrentDomain.BaseDirectory)?.FullName ?? "")?.FullName ?? "", fileName),
-                    // project root folder
-                    Path.Combine(Directory.GetCurrentDirectory(), fileName)
-                };
-
-                string? foundPath = null;
-                foreach (var path in possiblePaths)
-                {
-                    _logger.LogInformation("Trying to find stations file at: {Path}", path);
-                    if (File.Exists(path))
-                    {
-                        foundPath = path;
-                        _logger.LogInformation("Found stations file at: {Path}", path);
-                        break;
-                    }
-                }
-
-                if (foundPath == null)
-                {
-                    _logger.LogError("Could not find stations file in any of the expected locations");
+                    _logger.LogWarning("No weather stations found near the specified coordinates");
                     return null;
                 }
 
-                var stationsJson = await File.ReadAllTextAsync(foundPath);
-                var allStations = JsonSerializer.Deserialize<List<ObservationStationFeature>>(stationsJson);
+                StormData? localData = null;
 
-                if (allStations == null || !allStations.Any())
+                foreach (var station in stations)
                 {
-                    _logger.LogWarning("No stations found in saved data");
-                    return null;
-                }
-
-                _logger.LogInformation("Found {Count} total stations in saved data", allStations.Count);
-
-                // Find the closest stations (within 50km)
-                var validStations = allStations
-                    .Where(station => station.Geometry.Coordinates.Count == 2)
-                    .Select(station => new
-                    {
-                        Station = station,
-                        Distance = Geospatial.CalculateDistance(
-                            latitude,
-                            longitude,
-                            station.Geometry.Coordinates[1], // latitude
-                            station.Geometry.Coordinates[0]  // longitude
-                        )
-                    })
-                    .Where(x => x.Distance <= 50) // within 50km
-                    .OrderBy(x => x.Distance)
-                    .Take(5) // Get top 5 closest stations
-                    .ToList();
-
-                _logger.LogInformation("Found {Count} stations within 50km", validStations.Count);
-
-                if (!validStations.Any())
-                {
-                    _logger.LogWarning("No stations found within 50km of coordinates");
-                    return null;
-                }
-
-                // Try each station until we find valid data
-                foreach (var stationInfo in validStations)
-                {
-                    var station = stationInfo.Station;
-                    _logger.LogInformation("Checking station {StationId} ({Name}) at distance {Distance}km",
-                        station.Properties.StationIdentifier,
-                        station.Properties.Name,
-                        stationInfo.Distance);
-
                     try
                     {
-                        // Fetch latest observation directly using the station identifier
+                        var distance = CalculateDistance(latitude, longitude,
+                            station.Geometry.Coordinates[1], station.Geometry.Coordinates[0]);
+
                         string observationUrl = $"https://api.weather.gov/stations/{station.Properties.StationIdentifier}/observations/latest";
                         _logger.LogInformation("Fetching observation data from: {Url}", observationUrl);
 
@@ -156,43 +85,92 @@ namespace StormSafe.Services
                             continue;
                         }
 
-                        var temperature = observation.Properties.Temperature?.Value;
-                        var windSpeed = observation.Properties.WindSpeed?.Value;
+                        // Check for storm indicators
+                        var windSpeed = observation.Properties.WindSpeed?.Value ?? 0;
+                        var temperature = observation.Properties.Temperature?.Value ?? 0;
+                        var timestamp = observation.Properties.Timestamp;
 
-                        _logger.LogInformation("Station {StationId} data - Temperature: {Temperature}, WindSpeed: {WindSpeed}",
-                            station.Properties.StationIdentifier,
-                            temperature,
-                            windSpeed);
-
-                        if (temperature.HasValue && windSpeed.HasValue)
+                        // If we find storm indicators, update the local data with storm information
+                        if (windSpeed > 30)
                         {
-                            _logger.LogInformation("Found valid data at station {StationId}: Temp={Temperature}°C, Wind={WindSpeed}km/h",
-                                station.Properties.StationIdentifier,
-                                temperature.Value,
-                                windSpeed.Value);
+                            _logger.LogInformation("Found storm data at station {StationId}", station.Properties.StationIdentifier);
 
-                            return new StormData
+                            var stormIntensity = CalculateStormIntensity(windSpeed);
+                            var stormType = DetermineStormType(windSpeed);
+                            var stormDescription = $"High winds detected at {station.Properties.Name}";
+
+                            localData = new StormData
                             {
-                                Temperature = temperature.Value,
-                                WindSpeed = windSpeed.Value,
+                                Temperature = temperature,
+                                WindSpeed = windSpeed,
                                 StationId = station.Properties.StationIdentifier,
                                 StationName = station.Properties.Name,
-                                Distance = stationInfo.Distance,
-                                Timestamp = observation.Properties.Timestamp,
-                                LastUpdated = DateTime.UtcNow
+                                Distance = distance,
+                                Timestamp = timestamp,
+                                LastUpdated = DateTime.UtcNow,
+                                CurrentConditions = new CurrentConditions
+                                {
+                                    Temperature = temperature,
+                                    WindSpeed = windSpeed,
+                                    WindDirection = "N", // Default value
+                                    Precipitation = 0, // Default value
+                                    Pressure = 0, // Default value
+                                    Visibility = 0, // Default value
+                                    CloudCover = 0, // Default value
+                                    Humidity = 0, // Default value
+                                    StormType = stormType,
+                                    StormIntensity = stormIntensity,
+                                    StormDescription = stormDescription,
+                                    StationName = station.Properties.Name,
+                                    StationDistance = distance
+                                }
+                            };
+                            break;
+                        }
+                        else
+                        {
+                            _logger.LogInformation("No storm data found at station {StationId}", station.Properties.StationIdentifier);
+                            localData = new StormData
+                            {
+                                Temperature = temperature,
+                                WindSpeed = windSpeed,
+                                StationId = station.Properties.StationIdentifier,
+                                StationName = station.Properties.Name,
+                                Distance = distance,
+                                Timestamp = timestamp,
+                                LastUpdated = DateTime.UtcNow,
+                                CurrentConditions = new CurrentConditions
+                                {
+                                    Temperature = temperature,
+                                    WindSpeed = windSpeed,
+                                    WindDirection = "N", // Default value
+                                    Precipitation = 0, // Default value
+                                    Pressure = 0, // Default value
+                                    Visibility = 0, // Default value
+                                    CloudCover = 0, // Default value
+                                    Humidity = 0, // Default value
+                                    StormType = "No Storm",
+                                    StormIntensity = 0,
+                                    StormDescription = "No storm activity detected",
+                                    StationName = station.Properties.Name,
+                                    StationDistance = distance
+                                }
                             };
                         }
-
-                        _logger.LogWarning("Station {StationId} has missing temperature or wind speed data", station.Properties.StationIdentifier);
                     }
                     catch (Exception ex)
                     {
-                        _logger.LogError(ex, "Error fetching data for station {StationId}", station.Properties.StationIdentifier);
+                        _logger.LogError(ex, "Error getting data from station {StationId}", station.Properties.StationIdentifier);
                     }
                 }
 
-                _logger.LogWarning("No valid data found from any nearby stations");
-                return null;
+                if (localData == null)
+                {
+                    _logger.LogWarning("No valid data found from any nearby stations");
+                    return null;
+                }
+
+                return localData;
             }
             catch (Exception ex)
             {
@@ -201,94 +179,42 @@ namespace StormSafe.Services
             }
         }
 
-        private string DetermineStormType(NOAAConditionsProperties properties)
+        private int CalculateStormIntensity(double windSpeed)
         {
-            var windSpeed = properties.WindSpeed?.Value ?? 0;
-            var precipitation = properties.PrecipitationLastHour?.Value ?? 0;
-            var presentWeather = properties.PresentWeather ?? new List<object>();
-
-            // Check for thunderstorm indicators
-            if (presentWeather.Any(p => p.ToString()?.Contains("thunder", StringComparison.OrdinalIgnoreCase) == true))
-            {
-                return "Thunderstorm";
-            }
-
-            // Check for heavy rain
-            if (precipitation > 10) // More than 10mm per hour
-            {
-                return "Heavy Rain";
-            }
-
-            // Check for high winds
-            if (windSpeed > 50) // More than 50 km/h
-            {
-                return "High Winds";
-            }
-
-            // Check for snow
-            if (presentWeather.Any(p => p.ToString()?.Contains("snow", StringComparison.OrdinalIgnoreCase) == true))
-            {
-                return "Snow";
-            }
-
-            return "None";
+            // Calculate storm intensity based on wind speed
+            if (windSpeed >= 120) return 5; // Hurricane force winds
+            if (windSpeed >= 90) return 4;  // Storm force winds
+            if (windSpeed >= 60) return 3;  // Gale force winds
+            if (windSpeed >= 45) return 2;  // Strong winds
+            if (windSpeed >= 30) return 1;  // Moderate winds
+            return 0;                       // No storm
         }
 
-        private int CalculateStormIntensity(NOAAConditionsProperties properties)
+        private string DetermineStormType(double windSpeed)
         {
-            var windSpeed = properties.WindSpeed?.Value ?? 0;
-            var precipitation = properties.PrecipitationLastHour?.Value ?? 0;
-            var presentWeather = properties.PresentWeather ?? new List<object>();
-
-            int intensity = 0;
-
-            // Wind intensity
-            if (windSpeed > 80) intensity += 3; // Very high winds
-            else if (windSpeed > 50) intensity += 2; // High winds
-            else if (windSpeed > 30) intensity += 1; // Moderate winds
-
-            // Precipitation intensity
-            if (precipitation > 20) intensity += 3; // Heavy rain
-            else if (precipitation > 10) intensity += 2; // Moderate rain
-            else if (precipitation > 5) intensity += 1; // Light rain
-
-            // Weather type intensity
-            if (presentWeather.Any(p => p.ToString()?.Contains("thunder", StringComparison.OrdinalIgnoreCase) == true))
-            {
-                intensity += 2;
-            }
-
-            // Cap intensity at 5
-            return Math.Min(intensity, 5);
+            if (windSpeed >= 120) return "Hurricane Force Winds";
+            if (windSpeed >= 90) return "Storm Force Winds";
+            if (windSpeed >= 60) return "Gale Force Winds";
+            if (windSpeed >= 45) return "Strong Winds";
+            if (windSpeed >= 30) return "Moderate Winds";
+            return "No Storm";
         }
 
-        private double CalculateStormIntensity(double temperature, double windSpeed, double precipitation)
+        private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
         {
-            // Normalize wind speed (using NOAA's wind thresholds)
-            var windIntensity = windSpeed switch
-            {
-                var w when w > 74 => 1.0,    // Hurricane force
-                var w when w > 58 => 0.8,    // High wind
-                var w when w > 40 => 0.6,    // Strong wind
-                var w when w > 30 => 0.4,    // Wind storm
-                _ => Math.Min(1, windSpeed / 30.0) // Linear scale for lower winds
-            };
+            var R = 6371; // Earth's radius in kilometers
+            var dLat = ToRadians(lat2 - lat1);
+            var dLon = ToRadians(lon2 - lon1);
+            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                    Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                    Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+            return R * c;
+        }
 
-            // Normalize precipitation (using NOAA's precipitation thresholds)
-            var precipitationIntensity = precipitation switch
-            {
-                var p when p > 4.0 => 1.0,   // Heavy snow/rain
-                var p when p > 2.0 => 0.8,   // Moderate snow/rain
-                var p when p > 1.0 => 0.6,   // Light snow/rain
-                _ => Math.Min(1, precipitation / 1.0) // Linear scale for lower amounts
-            };
-
-            // Calculate combined intensity (0-100)
-            // Weight wind more heavily for high winds, precipitation more for heavy precipitation
-            var windWeight = windSpeed > 40 ? 0.7 : 0.5;
-            var precipitationWeight = precipitation > 2.0 ? 0.7 : 0.5;
-
-            return (windIntensity * windWeight + precipitationIntensity * precipitationWeight) * 100;
+        private double ToRadians(double angle)
+        {
+            return Math.PI * angle / 180.0;
         }
 
         private List<string> DetermineStormTypes(double temperature, double windSpeed, double precipitation)
@@ -440,23 +366,6 @@ namespace StormSafe.Services
                 "NNW" => 337.5,
                 _ => 0 // Default to North if unknown
             };
-        }
-
-        private double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
-        {
-            var R = 6371; // Earth's radius in kilometers
-            var dLat = ToRadians(lat2 - lat1);
-            var dLon = ToRadians(lon2 - lon1);
-            var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
-                    Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
-                    Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
-            var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
-            return R * c;
-        }
-
-        private double ToRadians(double angle)
-        {
-            return Math.PI * angle / 180.0;
         }
 
         private RadarStationFeature? FindNearestStation(List<RadarStationFeature>? stations, double latitude, double longitude)
