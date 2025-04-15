@@ -645,6 +645,13 @@
                         if (loadingIndicator) loadingIndicator.style.display = 'none';
                     }
 
+                    // Function to convert wind direction angle to compass direction
+                    function getWindDirection(degrees) {
+                        const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+                        const index = Math.round(degrees / 22.5) % 16;
+                        return directions[index];
+                    }
+
                     // Function to update storm data
                     async function updateStormData(latitude, longitude) {
                         try {
@@ -698,6 +705,11 @@
                                     document.getElementById('wind-speed').textContent = `${data.windSpeed} mph`;
                                 }
 
+                                if (data.windDirection !== undefined) {
+                                    const compassDirection = getWindDirection(data.windDirection);
+                                    document.getElementById('wind-direction').textContent = `${compassDirection} (${data.windDirection}°)`;
+                                }
+
                                 if (data.stationName) {
                                     document.getElementById('station-name').textContent = data.stationName;
                                     document.getElementById('station-distance').textContent = `Distance: ${data.distance.toFixed(1)} miles`;
@@ -708,8 +720,6 @@
                                 } else {
                                     document.getElementById('last-updated').textContent = new Date().toLocaleString();
                                 }
-
-                                document.getElementById('wind-direction').textContent = 'N/A';
 
                                 // Update storm info card (if we have extended data)
                                 if (data.currentConditions) {
@@ -754,12 +764,12 @@
                                         const alertElement = document.createElement('div');
                                         alertElement.className = 'alert alert-warning mb-2';
                                         alertElement.innerHTML = `
-                                                                            <h6>${alert.event}</h6>
-                                                                            <p class="mb-1"><strong>Severity:</strong> ${alert.severity}</p>
-                                                                            <p class="mb-1"><strong>Urgency:</strong> ${alert.urgency}</p>
-                                                                            <p class="mb-1">${alert.description}</p>
-                                                                            <small>Valid: ${new Date(alert.startTime).toLocaleString()} - ${new Date(alert.endTime).toLocaleString()}</small>
-                                                                        `;
+                                                                                            <h6>${alert.event}</h6>
+                                                                                            <p class="mb-1"><strong>Severity:</strong> ${alert.severity}</p>
+                                                                                            <p class="mb-1"><strong>Urgency:</strong> ${alert.urgency}</p>
+                                                                                            <p class="mb-1">${alert.description}</p>
+                                                                                            <small>Valid: ${new Date(alert.startTime).toLocaleString()} - ${new Date(alert.endTime).toLocaleString()}</small>
+                                                                                        `;
                                         alertsList.appendChild(alertElement);
                                     });
                                 }
