@@ -743,7 +743,7 @@
                                 // Update weather data card
                                 if (data.temperature !== undefined) {
                                     // Convert Celsius to Fahrenheit: (C × 9/5) + 32
-                                    const fahrenheit = (data.temperature * 9/5) + 32;
+                                    const fahrenheit = (data.temperature * 9 / 5) + 32;
                                     document.getElementById('temperature').textContent = `${fahrenheit.toFixed(1)}°F`;
                                 }
 
@@ -754,81 +754,115 @@
                                 }
 
                                 if (data.windDirection !== undefined) {
-                                    const compassDirection = getWindDirection(data.windDirection);
-                                    document.getElementById('wind-direction').textContent = `${compassDirection} (${data.windDirection}°)`;
+                                    console.log("Wind Direction Data:", data.windDirection);
+                                    let compassDirection;
+                                    let degrees;
+                                    
+                                    if (typeof data.windDirection === 'object' && data.windDirection.value !== undefined) {
+                                        // Handle object format with value property
+                                        degrees = data.windDirection.value;
+                                        compassDirection = getWindDirection(degrees);
+                                    } else if (typeof data.windDirection === 'string') {
+                                        // Handle string format (e.g., "N", "NE", etc.)
+                                        compassDirection = data.windDirection;
+                                        // Convert compass direction to degrees
+                                        const directions = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE', 'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW'];
+                                        const index = directions.indexOf(compassDirection);
+                                        degrees = index * 22.5;
+                                    } else if (typeof data.windDirection === 'number') {
+                                        // Handle direct number format
+                                        degrees = data.windDirection;
+                                        compassDirection = getWindDirection(degrees);
+                                    }
+                                    
+                                    if (compassDirection && degrees !== undefined) {
+                                        document.getElementById('wind-direction').textContent = `${compassDirection} (${degrees}°)`;
+                                    } else {
+                                        document.getElementById('wind-direction').textContent = '--°';
+                                    }
+                                } else {
+                                    console.log("Wind Direction is undefined");
+                                    document.getElementById('wind-direction').textContent = '--°';
                                 }
 
+                                // Handle dew point (convert from Celsius to Fahrenheit)
                                 if (data.dewpoint !== undefined) {
-                                    const dewpointF = (data.dewpoint * 9/5) + 32;
+                                    const dewpointF = (data.dewpoint * 9 / 5) + 32;
                                     document.getElementById('dew-point').textContent = `${dewpointF.toFixed(1)}°F`;
                                 }
 
+                                // Handle wind chill (convert from Celsius to Fahrenheit)
                                 if (data.windChill !== undefined) {
-                                    const windChillF = (data.windChill * 9/5) + 32;
+                                    const windChillF = (data.windChill * 9 / 5) + 32;
                                     document.getElementById('wind-chill').textContent = `${windChillF.toFixed(1)}°F`;
                                 }
 
+                                // Handle heat index (convert from Celsius to Fahrenheit)
                                 if (data.heatIndex !== undefined) {
-                                    const heatIndexF = (data.heatIndex * 9/5) + 32;
+                                    const heatIndexF = (data.heatIndex * 9 / 5) + 32;
                                     document.getElementById('heat-index').textContent = `${heatIndexF.toFixed(1)}°F`;
                                 }
 
+                                // Handle relative humidity (no conversion needed, just format)
                                 if (data.relativeHumidity !== undefined) {
                                     document.getElementById('humidity').textContent = `${data.relativeHumidity.toFixed(0)}%`;
                                 }
 
+                                // Handle visibility (convert from meters to miles)
                                 if (data.visibility !== undefined) {
-                                    // Convert meters to miles: m * 0.000621371
                                     const visibilityMiles = data.visibility * 0.000621371;
                                     document.getElementById('visibility').textContent = `${visibilityMiles.toFixed(1)} miles`;
                                 }
 
+                                // Handle station information
                                 if (data.stationName) {
                                     document.getElementById('station-name').textContent = data.stationName;
                                     document.getElementById('station-distance').textContent = `Distance: ${data.distance.toFixed(1)} miles`;
                                 }
 
+                                // Handle timestamp
                                 if (data.timestamp) {
                                     document.getElementById('last-updated').textContent = new Date(data.timestamp).toLocaleString();
                                 } else {
                                     document.getElementById('last-updated').textContent = new Date().toLocaleString();
                                 }
 
-                                // Update storm info card (if we have extended data)
+                                // Update storm info card
                                 if (data.currentConditions) {
-                                    // Set storm type
+                                    // Set storm type and description
                                     document.getElementById('storm-type').textContent = data.currentConditions.stormType || 'None';
                                     document.getElementById('storm-description').textContent = data.currentConditions.stormDescription || 'No storm activity';
 
-                                    // Set precipitation
-                                    document.getElementById('precipitation').textContent = data.currentConditions.precipitation ?
-                                        `${data.currentConditions.precipitation} in` : 'None';
+                                    // Handle precipitation
+                                    if (data.currentConditions.precipitation !== undefined) {
+                                        document.getElementById('precipitation').textContent = `${data.currentConditions.precipitation} in`;
+                                    }
 
-                                    // Set barometric pressure (convert from hPa to inHg)
+                                    // Handle barometric pressure (convert from hPa to inHg)
                                     if (data.currentConditions.pressure !== undefined) {
                                         const pressureInHg = data.currentConditions.pressure * 0.02953;
                                         document.getElementById('barometric-pressure').textContent = `${pressureInHg.toFixed(2)} inHg`;
                                     }
 
-                                    // Set sea level pressure (convert from hPa to inHg)
+                                    // Handle sea level pressure (convert from hPa to inHg)
                                     if (data.currentConditions.seaLevelPressure !== undefined) {
                                         const seaLevelPressureInHg = data.currentConditions.seaLevelPressure * 0.02953;
                                         document.getElementById('sea-level-pressure').textContent = `${seaLevelPressureInHg.toFixed(2)} inHg`;
                                     }
 
-                                    // Set visibility (convert from meters to miles)
+                                    // Handle visibility (convert from meters to miles)
                                     if (data.currentConditions.visibility !== undefined) {
                                         const visibilityMiles = data.currentConditions.visibility * 0.000621371;
                                         document.getElementById('storm-visibility').textContent = `${visibilityMiles.toFixed(1)} miles`;
                                     }
 
-                                    // Set wind gust (convert from km/h to mph)
+                                    // Handle wind gust (convert from km/h to mph)
                                     if (data.currentConditions.windGust !== undefined) {
                                         const windGustMph = data.currentConditions.windGust * 0.621371;
                                         document.getElementById('wind-gust').textContent = `${windGustMph.toFixed(1)} mph`;
                                     }
 
-                                    // Set storm intensity
+                                    // Handle storm intensity
                                     if (data.currentConditions.stormIntensity !== undefined) {
                                         document.getElementById('storm-intensity').style.width = `${data.currentConditions.stormIntensity * 20}%`;
                                     } else {
@@ -865,12 +899,12 @@
                                         const alertElement = document.createElement('div');
                                         alertElement.className = 'alert alert-warning mb-2';
                                         alertElement.innerHTML = `
-                                                                                            <h6>${alert.event}</h6>
-                                                                                            <p class="mb-1"><strong>Severity:</strong> ${alert.severity}</p>
-                                                                                            <p class="mb-1"><strong>Urgency:</strong> ${alert.urgency}</p>
-                                                                                            <p class="mb-1">${alert.description}</p>
-                                                                                            <small>Valid: ${new Date(alert.startTime).toLocaleString()} - ${new Date(alert.endTime).toLocaleString()}</small>
-                                                                                        `;
+                                                                                                                            <h6>${alert.event}</h6>
+                                                                                                                            <p class="mb-1"><strong>Severity:</strong> ${alert.severity}</p>
+                                                                                                                            <p class="mb-1"><strong>Urgency:</strong> ${alert.urgency}</p>
+                                                                                                                            <p class="mb-1">${alert.description}</p>
+                                                                                                                            <small>Valid: ${new Date(alert.startTime).toLocaleString()} - ${new Date(alert.endTime).toLocaleString()}</small>
+                                                                                                                        `;
                                         alertsList.appendChild(alertElement);
                                     });
                                 }
