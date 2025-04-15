@@ -792,9 +792,11 @@
                                 }
 
                                 // Handle wind chill (convert from Celsius to Fahrenheit)
-                                if (data.windChill !== undefined) {
-                                    const windChillF = (data.windChill * 9 / 5) + 32;
+                                if (data.windChill !== undefined && data.windChill !== null) {
+                                    const windChillF = (data.windChill * 9/5) + 32;
                                     document.getElementById('wind-chill').textContent = `${windChillF.toFixed(1)}°F`;
+                                } else {
+                                    document.getElementById('wind-chill').textContent = 'No Data Available';
                                 }
 
                                 // Handle heat index (convert from Celsius to Fahrenheit)

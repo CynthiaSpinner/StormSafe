@@ -364,6 +364,9 @@ namespace StormSafe.Models
         [JsonPropertyName("windDirection")]
         public NOAAValue? WindDirection { get; set; }
 
+        [JsonPropertyName("dewpoint")]
+        public NOAAValue? Dewpoint { get; set; }
+
         [JsonPropertyName("timestamp")]
         public DateTime Timestamp { get; set; }
     }

@@ -90,6 +90,7 @@ namespace StormSafe.Services
                         var temperature = observation.Properties.Temperature?.Value ?? 0;
                         var timestamp = observation.Properties.Timestamp;
                         var windDirection = observation.Properties.WindDirection?.Value ?? 0;
+                        var dewpoint = observation.Properties.Dewpoint?.Value ?? 0;
 
                         // If we find storm indicators, update the local data with storm information
                         if (windSpeed > 30)
@@ -105,6 +106,7 @@ namespace StormSafe.Services
                                 Temperature = temperature,
                                 WindSpeed = windSpeed,
                                 WindDirection = windDirection,
+                                Dewpoint = dewpoint,
                                 StationId = station.Properties.StationIdentifier,
                                 StationName = station.Properties.Name,
                                 Distance = distance,
@@ -115,6 +117,7 @@ namespace StormSafe.Services
                                     Temperature = temperature,
                                     WindSpeed = windSpeed,
                                     WindDirection = windDirection.ToString(),
+                                    Dewpoint = dewpoint,
                                     Precipitation = 0, // Default value
                                     Pressure = 0, // Default value
                                     Visibility = 0, // Default value
@@ -137,6 +140,7 @@ namespace StormSafe.Services
                                 Temperature = temperature,
                                 WindSpeed = windSpeed,
                                 WindDirection = windDirection,
+                                Dewpoint = dewpoint,
                                 StationId = station.Properties.StationIdentifier,
                                 StationName = station.Properties.Name,
                                 Distance = distance,
@@ -147,6 +151,7 @@ namespace StormSafe.Services
                                     Temperature = temperature,
                                     WindSpeed = windSpeed,
                                     WindDirection = windDirection.ToString(),
+                                    Dewpoint = dewpoint,
                                     Precipitation = 0, // Default value
                                     Pressure = 0, // Default value
                                     Visibility = 0, // Default value
