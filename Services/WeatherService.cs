@@ -131,7 +131,7 @@ namespace StormSafe.Services
                                 {
                                     Temperature = temperature,
                                     WindSpeed = windSpeed,
-                                    WindDirection = ConvertWindDirectionToDegrees("N"),
+                                    WindDirection = ConvertWindDirectionToDegrees(windDirection.ToString()),
                                     Dewpoint = dewpoint,
                                     WindChill = windChill,
                                     HeatIndex = heatIndex,
